@@ -4,9 +4,10 @@ import { PaintState } from '@/pages/Index';
 interface CanvasProps {
   paintState: PaintState;
   onMove: (deltaX: number, deltaY: number) => void;
+  onStroke: (worldX: number, worldY: number, color: string, size: number) => void;
 }
 
-const Canvas = ({ paintState, onMove }: CanvasProps) => {
+const Canvas = ({ paintState, onMove, onStroke }: CanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [lastPoint, setLastPoint] = useState<{ x: number; y: number } | null>(null);
@@ -84,6 +85,13 @@ const Canvas = ({ paintState, onMove }: CanvasProps) => {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         drawLine(ctx, point, point);
+        // Report stroke to minimap
+        onStroke(
+          paintState.x + point.x,
+          paintState.y + point.y,
+          paintState.color,
+          paintState.size
+        );
       }
     }
   }, [getCanvasPoint, drawLine]);
@@ -100,6 +108,13 @@ const Canvas = ({ paintState, onMove }: CanvasProps) => {
       if (ctx) {
         drawLine(ctx, lastPoint, point);
         setLastPoint(point);
+        // Report stroke to minimap
+        onStroke(
+          paintState.x + point.x,
+          paintState.y + point.y,
+          paintState.color,
+          paintState.size
+        );
       }
     }
   }, [isDrawing, lastPoint, getCanvasPoint, drawLine]);

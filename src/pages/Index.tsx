@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Canvas from '@/components/Canvas';
 import ColorPicker from '@/components/ColorPicker';
 import ToolBar from '@/components/ToolBar';
@@ -20,15 +20,23 @@ export interface PaintState {
 
 const Index = () => {
   const isMobile = useIsMobile();
+  
+  // Generate random starting position
+  const [initialPosition] = useState(() => ({
+    x: Math.floor(Math.random() * (1000000 - 512)),
+    y: Math.floor(Math.random() * (1000000 - 512))
+  }));
+  
   const [paintState, setPaintState] = useState<PaintState>({
     color: '#ff0080',
     tool: 'brush',
     size: 3,
-    x: 500000, // Start at center of 1M×1M world
-    y: 500000
+    ...initialPosition
   });
   
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [strokes, setStrokes] = useState<Array<{x: number, y: number, color: string, size: number}>>([]);
+  const [targetPosition, setTargetPosition] = useState(initialPosition);
   
   const handleColorChange = useCallback((color: string) => {
     setPaintState(prev => ({ ...prev, color }));
@@ -43,12 +51,53 @@ const Index = () => {
   }, []);
   
   const handleMove = useCallback((deltaX: number, deltaY: number) => {
-    setPaintState(prev => ({
-      ...prev,
+    setTargetPosition(prev => ({
       x: Math.max(0, Math.min(1000000 - 512, prev.x + deltaX)),
       y: Math.max(0, Math.min(1000000 - 512, prev.y + deltaY))
     }));
   }, []);
+
+  const handleStroke = useCallback((worldX: number, worldY: number, color: string, size: number) => {
+    setStrokes(prev => [...prev, { x: worldX, y: worldY, color, size }]);
+  }, []);
+
+  const handleMinimapJump = useCallback((x: number, y: number) => {
+    const newX = Math.max(0, Math.min(1000000 - 512, x));
+    const newY = Math.max(0, Math.min(1000000 - 512, y));
+    setTargetPosition({ x: newX, y: newY });
+  }, []);
+
+  // Smooth lerp movement
+  useEffect(() => {
+    const lerp = (start: number, end: number, factor: number) => {
+      return start + (end - start) * factor;
+    };
+
+    let animationFrame: number;
+    
+    const updatePosition = () => {
+      setPaintState(prev => {
+        const lerpFactor = 0.1; // Smooth movement speed
+        const newX = lerp(prev.x, targetPosition.x, lerpFactor);
+        const newY = lerp(prev.y, targetPosition.y, lerpFactor);
+        
+        // Continue animation if not close enough
+        if (Math.abs(newX - targetPosition.x) > 1 || Math.abs(newY - targetPosition.y) > 1) {
+          animationFrame = requestAnimationFrame(updatePosition);
+        }
+        
+        return { ...prev, x: newX, y: newY };
+      });
+    };
+
+    updatePosition();
+    
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [targetPosition]);
 
   return (
     <div 
@@ -60,6 +109,7 @@ const Index = () => {
         <Canvas 
           paintState={paintState}
           onMove={handleMove}
+          onStroke={handleStroke}
         />
       </div>
 
@@ -86,7 +136,9 @@ const Index = () => {
         <Minimap 
           worldX={paintState.x}
           worldY={paintState.y}
-          onJump={(x, y) => setPaintState(prev => ({ ...prev, x, y }))}
+          strokes={strokes}
+          onJump={handleMinimapJump}
+          onMove={handleMove}
         />
       </div>
 
