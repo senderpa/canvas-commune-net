@@ -7,7 +7,10 @@ import InfoDialog from '@/components/InfoDialog';
 import AnimationReplay from '@/components/AnimationReplay';
 import WorldMinimap from '@/components/WorldMinimap';
 import MobileOverlay from '@/components/MobileOverlay';
+import QueueOverlay from '@/components/QueueOverlay';
+import KickedOverlay from '@/components/KickedOverlay';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { usePlayerSession } from '@/hooks/usePlayerSession';
 
 export type Tool = 'brush' | 'eraser';
 
@@ -21,6 +24,7 @@ export interface PaintState {
 
 const Index = () => {
   const isMobile = useIsMobile();
+  const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, resetKick } = usePlayerSession();
   
   // Generate random starting position and color
   const [initialPosition] = useState(() => ({
@@ -104,11 +108,18 @@ const Index = () => {
   }, []);
   
   const handleMove = useCallback((deltaX: number, deltaY: number) => {
-    setTargetPosition(prev => ({
-      x: Math.max(0, Math.min(10000 - 512, prev.x + deltaX)),
-      y: Math.max(0, Math.min(10000 - 512, prev.y + deltaY))
-    }));
-  }, []);
+    setTargetPosition(prev => {
+      const newPos = {
+        x: Math.max(0, Math.min(10000 - 512, prev.x + deltaX)),
+        y: Math.max(0, Math.min(10000 - 512, prev.y + deltaY))
+      };
+      
+      // Update position in database
+      updatePosition(newPos.x, newPos.y);
+      
+      return newPos;
+    });
+  }, [updatePosition]);
 
   const handleStroke = useCallback((stroke: Omit<{
     id: string;
@@ -133,8 +144,11 @@ const Index = () => {
       
       setStrokes(prev => [...prev, newStroke]);
       setStrokeCount(prev => prev + 1);
+      
+      // Update activity when painting
+      updateActivity();
     }
-  }, []);
+  }, [updateActivity]);
 
   // Simulate other players' strokes every 30 seconds
   useEffect(() => {
@@ -224,9 +238,19 @@ const Index = () => {
             <p className="text-muted-foreground mb-6">
               A collaborative painting experience on a massive 100 million pixel canvas!
             </p>
+            
+            <div className="bg-muted/50 rounded-lg p-4 mb-6">
+              <div className="text-sm mb-2">
+                <span className="text-primary font-semibold">{sessionState.playerCount}</span> active painters
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Maximum 100 simultaneous painters
+              </div>
+            </div>
+            
             <div className="space-y-4 mb-6">
               <div className="text-sm text-muted-foreground">
-                🎨 Paint together with others in real-time
+                🎨 Paint together with up to 100 others
               </div>
               <div className="text-sm text-muted-foreground">  
                 🗺️ Explore a world of 10,000 × 10,000 pixels
@@ -234,18 +258,47 @@ const Index = () => {
               <div className="text-sm text-muted-foreground">
                 ✨ Use transparency and various brush sizes
               </div>
+              <div className="text-sm text-muted-foreground">
+                ⏰ 10 minute sessions with 1 minute activity timeout
+              </div>
             </div>
             <button
-              onClick={() => setIsStarted(true)}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
+              onClick={async () => {
+                const success = await joinSession();
+                if (success) {
+                  setIsStarted(true);
+                }
+              }}
+              disabled={!sessionState.canJoin}
+              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
             >
-              Start Painting
+              {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
             </button>
           </div>
         </div>
       )}
 
-      {isStarted && (
+      {/* Queue Overlay */}
+      {!sessionState.canJoin && !sessionState.isConnected && isStarted && (
+        <QueueOverlay
+          playerCount={sessionState.playerCount}
+          queuePosition={sessionState.queuePosition}
+          onCancel={() => setIsStarted(false)}
+        />
+      )}
+
+      {/* Kicked Overlay */}
+      {sessionState.isKicked && (
+        <KickedOverlay
+          reason={sessionState.kickReason}
+          onRestart={() => {
+            resetKick();
+            setIsStarted(false);
+          }}
+        />
+      )}
+
+      {isStarted && sessionState.isConnected && (
         <>
           {/* Main canvas area - always centered */}
           <div className="absolute inset-0 flex items-center justify-center">
@@ -285,7 +338,11 @@ const Index = () => {
 
           {/* Player stats - bottom left */}
           <div className="absolute bottom-6 left-6 z-10">
-            <PlayerStats strokeCount={strokeCount} />
+            <PlayerStats 
+              strokeCount={strokeCount} 
+              playerCount={sessionState.playerCount}
+              isConnected={sessionState.isConnected}
+            />
           </div>
         </>
       )}
@@ -302,6 +359,8 @@ const Index = () => {
           onPlayOpen={() => setIsPlayOpen(true)}
           onMapOpen={() => setIsMapOpen(true)}
           strokeCount={strokeCount}
+          playerCount={sessionState.playerCount}
+          isConnected={sessionState.isConnected}
         />
       )}
 

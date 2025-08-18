@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 
 interface PlayerStatsProps {
   strokeCount: number;
+  playerCount: number;
+  isConnected: boolean;
 }
 
-const PlayerStats = ({ strokeCount }: PlayerStatsProps) => {
+const PlayerStats = ({ strokeCount, playerCount, isConnected }: PlayerStatsProps) => {
   const [stats, setStats] = useState({
-    activePlayers: 1, // Start with just this player
     ping: 42,
     saving: false
   });
@@ -36,9 +37,9 @@ const PlayerStats = ({ strokeCount }: PlayerStatsProps) => {
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Players:</span>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-creative-primary rounded-full animate-pulse" />
-            <span className="font-medium text-creative-primary">
-              {formatNumber(stats.activePlayers)}
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-creative-primary animate-pulse' : 'bg-muted'}`} />
+            <span className={`font-medium ${isConnected ? 'text-creative-primary' : 'text-muted-foreground'}`}>
+              {formatNumber(playerCount)}/100
             </span>
           </div>
         </div>

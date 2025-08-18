@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import MobileControls from './MobileControls';
 import MobileColorPicker from './MobileColorPicker';
+import PlayerStats from './PlayerStats';
 import { PaintState, Tool } from '@/pages/Index';
 
 interface MobileOverlayProps {
@@ -14,6 +15,8 @@ interface MobileOverlayProps {
   onPlayOpen: () => void;
   onMapOpen: () => void;
   strokeCount: number;
+  playerCount: number;
+  isConnected: boolean;
 }
 
 const MobileOverlay = ({
@@ -25,7 +28,9 @@ const MobileOverlay = ({
   onInfoOpen,
   onPlayOpen,
   onMapOpen,
-  strokeCount
+  strokeCount,
+  playerCount,
+  isConnected,
 }: MobileOverlayProps) => {
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
 
@@ -111,13 +116,13 @@ const MobileOverlay = ({
         />
       </div>
 
-      {/* Stats */}
-      <div className="absolute bottom-4 left-4 z-20">
-        <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-2">
-          <div className="text-xs text-muted-foreground">
-            Strokes: {strokeCount}
-          </div>
-        </div>
+      {/* Player Stats - Bottom Left */}
+      <div className="absolute bottom-20 left-4 z-20">
+        <PlayerStats 
+          strokeCount={strokeCount} 
+          playerCount={playerCount}
+          isConnected={isConnected}
+        />
       </div>
 
       {/* Mobile controls */}
