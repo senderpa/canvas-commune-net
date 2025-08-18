@@ -28,7 +28,7 @@ const Index = () => {
   const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, updatePaintState, resetKick } = usePlayerSession();
   const { strokes, isLoading: strokesLoading, addStroke } = useRealTimeStrokes();
   
-  // Generate random starting position and color
+  // Generate random starting position and color (updated)
   const [initialPosition] = useState(() => ({
     x: Math.floor(Math.random() * (10000 - 512)),
     y: Math.floor(Math.random() * (10000 - 512))
