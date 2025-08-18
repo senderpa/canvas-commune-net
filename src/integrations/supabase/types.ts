@@ -14,13 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      player_sessions: {
+        Row: {
+          created_at: string | null
+          current_color: string | null
+          current_size: number | null
+          current_tool: string | null
+          id: string
+          is_active: boolean | null
+          last_activity: string | null
+          player_id: string
+          position_x: number | null
+          position_y: number | null
+          session_start: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_color?: string | null
+          current_size?: number | null
+          current_tool?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_activity?: string | null
+          player_id: string
+          position_x?: number | null
+          position_y?: number | null
+          session_start?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_color?: string | null
+          current_size?: number | null
+          current_tool?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_activity?: string | null
+          player_id?: string
+          position_x?: number | null
+          position_y?: number | null
+          session_start?: string | null
+        }
+        Relationships: []
+      }
+      strokes: {
+        Row: {
+          color: string
+          created_at: string | null
+          id: string
+          player_id: string
+          points: Json
+          size: number
+          tool: string
+          world_x: number
+          world_y: number
+        }
+        Insert: {
+          color: string
+          created_at?: string | null
+          id?: string
+          player_id: string
+          points: Json
+          size: number
+          tool: string
+          world_x: number
+          world_y: number
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          player_id?: string
+          points?: Json
+          size?: number
+          tool?: string
+          world_x?: number
+          world_y?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_inactive_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
