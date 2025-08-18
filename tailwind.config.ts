@@ -24,6 +24,24 @@ export default {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
+				
+				/* Creative MultipainteR colors */
+				creative: {
+					primary: 'hsl(var(--creative-primary))',
+					secondary: 'hsl(var(--creative-secondary))',
+					accent: 'hsl(var(--creative-accent))',
+					glow: 'hsl(var(--creative-glow))',
+				},
+				canvas: {
+					bg: 'hsl(var(--canvas-bg))',
+					border: 'hsl(var(--canvas-border))',
+				},
+				tool: {
+					active: 'hsl(var(--tool-active))',
+					inactive: 'hsl(var(--tool-inactive))',
+					hover: 'hsl(var(--tool-hover))',
+				},
+				
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'

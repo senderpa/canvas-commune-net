@@ -1,0 +1,70 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+
+interface InfoDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-creative-primary to-creative-secondary rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </div>
+            About MultipainteR
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4 text-sm">
+          <div className="space-y-2">
+            <h4 className="font-medium">The Canvas</h4>
+            <p className="text-muted-foreground leading-relaxed">
+              A massive 1,000,000 × 1,000,000 pixel collaborative artwork where anyone can paint anonymously. 
+              Your creations become part of a living, evolving masterpiece.
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <h4 className="font-medium">How to Paint</h4>
+            <ul className="text-muted-foreground space-y-1 text-xs">
+              <li>• Use arrow keys (desktop) or touch controls (mobile) to move</li>
+              <li>• Click/tap and drag to paint with the selected brush</li>
+              <li>• Choose colors with the color wheel on the left</li>
+              <li>• Switch between brush and eraser tools</li>
+              <li>• Adjust brush size from 1-10 pixels</li>
+            </ul>
+          </div>
+          
+          <div className="space-y-2">
+            <h4 className="font-medium">Anonymous & Public</h4>
+            <p className="text-muted-foreground leading-relaxed">
+              No login required. All artwork is public and non-censored. 
+              Your strokes are saved automatically and visible to all participants in real-time.
+            </p>
+          </div>
+          
+          <div className="border-t border-border pt-4 text-xs text-muted-foreground">
+            <p>
+              Questions? Contact: <span className="text-creative-primary">hello@multipainter.art</span>
+            </p>
+            <p className="mt-1">
+              No personal data is collected. Your position and UI preferences are stored locally only.
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default InfoDialog;
