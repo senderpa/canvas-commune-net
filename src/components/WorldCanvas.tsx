@@ -92,14 +92,17 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     };
   }, [paintState.x, paintState.y]);
 
-  // Get canvas point from mouse event
+  // Get canvas point from mouse event with proper scaling
   const getCanvasPoint = useCallback((e: React.PointerEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
     
     return { x, y };
   }, []);

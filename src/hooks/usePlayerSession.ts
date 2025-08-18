@@ -21,7 +21,7 @@ export interface SessionState {
   canJoin: boolean;
   queuePosition: number;
   isKicked: boolean;
-  kickReason: 'timeout' | 'inactivity' | 'full' | null;
+  kickReason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | null;
   playerId: string | null;
 }
 
@@ -250,17 +250,41 @@ export const usePlayerSession = () => {
 
     // Add cleanup listeners for page unload
     const handleBeforeUnload = () => {
-      // Use sendBeacon for reliable cleanup on page unload
-      const data = JSON.stringify({ player_id: playerId });
-      navigator.sendBeacon('/api/cleanup-player', data);
-      
-      // Also try direct cleanup
-      cleanup();
+      console.log('Page unloading - cleaning up session immediately');
+      if (sessionState.isConnected && playerId) {
+        // Use sendBeacon for reliable cleanup on page unload
+        const data = JSON.stringify({ player_id: playerId });
+        navigator.sendBeacon('/api/cleanup-player', data);
+        
+        // Also try direct cleanup
+        cleanup();
+        
+        // Set kicked state for restart prompt
+        setSessionState(prev => ({
+          ...prev,
+          isConnected: false,
+          isKicked: true,
+          kickReason: 'disconnected',
+          canJoin: true,
+          playerCount: Math.max(0, prev.playerCount - 1)
+        }));
+      }
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && sessionState.isConnected) {
+        console.log('Page hidden - cleaning up session');
         cleanup();
+        
+        // Set kicked state for restart prompt  
+        setSessionState(prev => ({
+          ...prev,
+          isConnected: false,
+          isKicked: true,
+          kickReason: 'disconnected',
+          canJoin: true,
+          playerCount: Math.max(0, prev.playerCount - 1)
+        }));
       }
     };
 

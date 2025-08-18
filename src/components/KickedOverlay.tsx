@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 
 interface KickedOverlayProps {
-  reason: 'timeout' | 'inactivity' | 'full' | null;
+  reason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | null;
   onRestart: () => void;
 }
 
@@ -25,6 +25,12 @@ const KickedOverlay = ({ reason, onRestart }: KickedOverlayProps) => {
           title: "Room Full",
           message: "All 100 painting slots are currently occupied.",
           icon: "🎨"
+        };
+      case 'disconnected':
+        return {
+          title: "Disconnected",
+          message: "You left the painting session. Ready to start again?",
+          icon: "🔌"
         };
       default:
         return {

@@ -35,14 +35,6 @@ const Index = () => {
     y: Math.floor(Math.random() * (10000 - 512))
   }));
   
-  // Generate new random color on each page load
-  useEffect(() => {
-    const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
-    const newColor = colors[Math.floor(Math.random() * colors.length)];
-    setPaintState(prev => ({ ...prev, color: newColor }));
-    console.log('Random color generated:', newColor);
-  }, []);
-  
   const [paintState, setPaintState] = useState<PaintState>({
     color: '#ff0080', // Will be overridden by useEffect
     tool: 'brush',
@@ -51,6 +43,16 @@ const Index = () => {
   });
   
   const [isStarted, setIsStarted] = useState(false);
+  
+  // Generate new random color on each session start
+  useEffect(() => {
+    if (isStarted && sessionState.isConnected) {
+      const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
+      const newColor = colors[Math.floor(Math.random() * colors.length)];
+      setPaintState(prev => ({ ...prev, color: newColor }));
+      console.log('Random color generated on session start:', newColor);
+    }
+  }, [isStarted, sessionState.isConnected]);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
@@ -210,7 +212,7 @@ const Index = () => {
                 ✨ Use transparency and various brush sizes
               </div>
               <div className="text-sm text-muted-foreground">
-                ⏰ 30 minute sessions with 5 minute activity timeout
+                ⏰ 10 minute painting sessions with 1 minute inactivity timeout
               </div>
             </div>
             
