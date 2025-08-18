@@ -25,7 +25,7 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
   const worldSize = 1000000;
   const viewportSize = 512;
   
-  // Draw minimap
+  // Draw minimap with actual stroke rendering
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -36,57 +36,70 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
     canvas.width = size;
     canvas.height = size;
     
+    // Save context
+    ctx.save();
+    
+    // Apply zoom and pan transformations
+    ctx.translate(panX, panY);
+    ctx.scale(zoomLevel, zoomLevel);
+    
     // White background
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(-panX/zoomLevel, -panY/zoomLevel, size/zoomLevel, size/zoomLevel);
     
-    // Draw light grid
+    // Draw light grid (adjusted for zoom)
     ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1/zoomLevel;
     const gridSize = size / 20;
     for (let i = 0; i <= 20; i++) {
       const pos = i * gridSize;
       ctx.beginPath();
-      ctx.moveTo(pos, 0);
-      ctx.lineTo(pos, size);
+      ctx.moveTo(pos, -panY/zoomLevel);
+      ctx.lineTo(pos, size/zoomLevel - panY/zoomLevel);
       ctx.stroke();
       
       ctx.beginPath();
-      ctx.moveTo(0, pos);
-      ctx.lineTo(size, pos);
+      ctx.moveTo(-panX/zoomLevel, pos);
+      ctx.lineTo(size/zoomLevel - panX/zoomLevel, pos);
       ctx.stroke();
     }
     
-    // Draw all strokes as actual scaled lines
+    // Draw all strokes as actual lines (not dots!)
     strokes.forEach(stroke => {
       if (stroke.points.length === 0) return;
       
-      // Convert world coordinates to minimap coordinates with zoom and pan
+      // Convert world coordinates to minimap coordinates
       const minimapPoints = stroke.points.map(point => ({
-        x: ((point.x / worldSize) * size * zoomLevel) + panX,
-        y: ((point.y / worldSize) * size * zoomLevel) + panY
+        x: (point.x / worldSize) * size,
+        y: (point.y / worldSize) * size
       }));
 
-      // Only draw if any point is within bounds
-      const inBounds = minimapPoints.some(point => 
-        point.x >= 0 && point.x < size && point.y >= 0 && point.y < size
+      // Check if stroke is visible in current view
+      const viewLeft = -panX/zoomLevel;
+      const viewTop = -panY/zoomLevel;
+      const viewRight = viewLeft + size/zoomLevel;
+      const viewBottom = viewTop + size/zoomLevel;
+      
+      const isVisible = minimapPoints.some(point => 
+        point.x >= viewLeft - 50 && point.x <= viewRight + 50 &&
+        point.y >= viewTop - 50 && point.y <= viewBottom + 50
       );
 
-      if (inBounds) {
+      if (isVisible) {
         ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
-        ctx.lineWidth = Math.max(2, (stroke.size / 4) * zoomLevel); // Better visibility with zoom
+        ctx.lineWidth = Math.max(0.5/zoomLevel, stroke.size / (20/zoomLevel));
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
         if (minimapPoints.length === 1) {
-          // Single point - draw as larger circle with zoom
+          // Single point - draw as circle
           const point = minimapPoints[0];
           ctx.beginPath();
-          ctx.arc(point.x, point.y, Math.max(2, (stroke.size / 6) * zoomLevel), 0, 2 * Math.PI);
+          ctx.arc(point.x, point.y, Math.max(1/zoomLevel, stroke.size / (15/zoomLevel)), 0, 2 * Math.PI);
           ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
           ctx.fill();
         } else {
-          // Multiple points - draw as connected lines
+          // Multiple points - draw as connected smooth lines
           ctx.beginPath();
           ctx.moveTo(minimapPoints[0].x, minimapPoints[0].y);
           for (let i = 1; i < minimapPoints.length; i++) {
@@ -97,25 +110,28 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
       }
     });
     
-    // Draw current viewport rectangle with zoom and pan
-    const viewX = ((worldX / worldSize) * size * zoomLevel) + panX;
-    const viewY = ((worldY / worldSize) * size * zoomLevel) + panY;
-    const viewW = (viewportSize / worldSize) * size * zoomLevel;
-    const viewH = (viewportSize / worldSize) * size * zoomLevel;
+    // Draw current viewport rectangle 
+    const viewX = (worldX / worldSize) * size;
+    const viewY = (worldY / worldSize) * size;
+    const viewW = (viewportSize / worldSize) * size;
+    const viewH = (viewportSize / worldSize) * size;
     
-    // Viewport outline with stronger visibility
+    // Viewport outline
     ctx.strokeStyle = '#ff0080';
-    ctx.lineWidth = 3; // Thicker line
+    ctx.lineWidth = 3/zoomLevel;
     ctx.strokeRect(viewX, viewY, viewW, viewH);
     
-    // Player position dot (larger)
+    // Player position dot
     const playerX = viewX + viewW / 2;
     const playerY = viewY + viewH / 2;
     
     ctx.fillStyle = '#ff0080';
     ctx.beginPath();
-    ctx.arc(playerX, playerY, Math.max(3, 5 * zoomLevel), 0, 2 * Math.PI); // Scale with zoom
+    ctx.arc(playerX, playerY, Math.max(2/zoomLevel, 5/zoomLevel), 0, 2 * Math.PI);
     ctx.fill();
+    
+    // Restore context
+    ctx.restore();
     
   }, [worldX, worldY, strokes, zoomLevel, panX, panY]);
 

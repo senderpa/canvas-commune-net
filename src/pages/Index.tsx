@@ -22,14 +22,19 @@ export interface PaintState {
 const Index = () => {
   const isMobile = useIsMobile();
   
-  // Generate random starting position
+  // Generate random starting position and color
   const [initialPosition] = useState(() => ({
     x: Math.floor(Math.random() * (1000000 - 512)),
     y: Math.floor(Math.random() * (1000000 - 512))
   }));
   
+  const [randomColor] = useState(() => {
+    const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff'];
+    return colors[Math.floor(Math.random() * colors.length)];
+  });
+  
   const [paintState, setPaintState] = useState<PaintState>({
-    color: '#ff0080',
+    color: randomColor,
     tool: 'brush',
     size: 3,
     ...initialPosition

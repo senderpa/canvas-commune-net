@@ -266,13 +266,8 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     currentStrokeRef.current = [];
   }, [onStroke, paintState]);
 
-  // Navigation arrows around canvas with acceleration
-  const ArrowButton = ({ direction, onClick, onMouseDown, onMouseUp }: { 
-    direction: string; 
-    onClick: () => void;
-    onMouseDown: () => void;
-    onMouseUp: () => void;
-  }) => {
+  // Simple arrow movement system
+  const ArrowButton = ({ direction }: { direction: string }) => {
     const icons = {
       up: "M5 15l7-7 7 7",
       down: "M19 9l-7 7-7-7", 
@@ -280,12 +275,62 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       right: "M9 5l7 7-7 7"
     };
 
+    const intervalRef = useRef<NodeJS.Timeout>();
+    const timeoutRef = useRef<NodeJS.Timeout>();
+
+    const getMovement = (dir: string) => {
+      switch (dir) {
+        case 'up': return { x: 0, y: -5 };
+        case 'down': return { x: 0, y: 5 };
+        case 'left': return { x: -5, y: 0 };
+        case 'right': return { x: 5, y: 0 };
+        default: return { x: 0, y: 0 };
+      }
+    };
+
+    const startMovement = () => {
+      const movement = getMovement(direction);
+      let speed = 5;
+      let accelerationTime = 0;
+
+      const move = () => {
+        accelerationTime += 100;
+        
+        // Accelerate over time: 0-10s slow, 10-30s medium, 30s+ fast
+        if (accelerationTime < 10000) {
+          speed = 5 + (accelerationTime / 10000) * 10; // 5 to 15
+        } else if (accelerationTime < 30000) {
+          speed = 15 + ((accelerationTime - 10000) / 20000) * 25; // 15 to 40
+        } else {
+          speed = 40; // max speed
+        }
+
+        onMove(movement.x * (speed / 5), movement.y * (speed / 5));
+      };
+
+      // Start immediately
+      move();
+      intervalRef.current = setInterval(move, 100);
+    };
+
+    const stopMovement = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = undefined;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = undefined;
+      }
+    };
+
     return (
       <button
-        onClick={onClick}
-        onMouseDown={onMouseDown}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
+        onMouseDown={startMovement}
+        onMouseUp={stopMovement}
+        onMouseLeave={stopMovement}
+        onTouchStart={startMovement}
+        onTouchEnd={stopMovement}
         className="absolute w-10 h-10 bg-card/80 border border-border rounded-lg hover:bg-card transition-all duration-200 flex items-center justify-center shadow-lg select-none"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -295,107 +340,20 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     );
   };
 
-  // Mouse-based movement with acceleration
-  const mouseKeysRef = useRef<Set<string>>(new Set());
-  const mouseKeyTimesRef = useRef<Map<string, number>>(new Map());
-  const mouseAnimationRef = useRef<number>();
-
-  const startMouseMovement = useCallback((direction: string) => {
-    if (!mouseKeysRef.current.has(direction)) {
-      mouseKeysRef.current.add(direction);
-      mouseKeyTimesRef.current.set(direction, Date.now());
-      
-      const updateMouseMovement = () => {
-        let deltaX = 0;
-        let deltaY = 0;
-        const currentTime = Date.now();
-
-        mouseKeysRef.current.forEach(dir => {
-          const startTime = mouseKeyTimesRef.current.get(dir) || currentTime;
-          const holdDuration = (currentTime - startTime) / 1000;
-          
-          // 3x faster acceleration
-          let speed;
-          if (holdDuration < 10) {
-            speed = 3 + (holdDuration / 10) * 6; // 3 to 9
-          } else if (holdDuration < 30) {
-            speed = 9 + ((holdDuration - 10) / 20) * 15; // 9 to 24
-          } else {
-            speed = 24; // max speed
-          }
-
-          switch (dir) {
-            case 'up': deltaY -= speed; break;
-            case 'down': deltaY += speed; break;
-            case 'left': deltaX -= speed; break;
-            case 'right': deltaX += speed; break;
-          }
-        });
-
-        if (deltaX !== 0 || deltaY !== 0) {
-          onMove(deltaX, deltaY);
-        }
-
-        if (mouseKeysRef.current.size > 0) {
-          mouseAnimationRef.current = requestAnimationFrame(updateMouseMovement);
-        }
-      };
-
-      updateMouseMovement();
-    }
-  }, [onMove]);
-
-  const stopMouseMovement = useCallback((direction: string) => {
-    mouseKeysRef.current.delete(direction);
-    mouseKeyTimesRef.current.delete(direction);
-    
-    if (mouseKeysRef.current.size === 0 && mouseAnimationRef.current) {
-      cancelAnimationFrame(mouseAnimationRef.current);
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (mouseAnimationRef.current) {
-        cancelAnimationFrame(mouseAnimationRef.current);
-      }
-    };
-  }, []);
-
   return (
     <div className="relative">
       {/* Navigation arrows around canvas */}
       <div className="absolute -top-14 left-1/2 -translate-x-1/2">
-        <ArrowButton 
-          direction="up" 
-          onClick={() => {}}
-          onMouseDown={() => startMouseMovement('up')}
-          onMouseUp={() => stopMouseMovement('up')}
-        />
+        <ArrowButton direction="up" />
       </div>
       <div className="absolute top-1/2 -left-14 -translate-y-1/2">
-        <ArrowButton 
-          direction="left" 
-          onClick={() => {}}
-          onMouseDown={() => startMouseMovement('left')}
-          onMouseUp={() => stopMouseMovement('left')}
-        />
+        <ArrowButton direction="left" />
       </div>
       <div className="absolute top-1/2 -right-14 -translate-y-1/2">
-        <ArrowButton 
-          direction="right" 
-          onClick={() => {}}
-          onMouseDown={() => startMouseMovement('right')}
-          onMouseUp={() => stopMouseMovement('right')}
-        />
+        <ArrowButton direction="right" />
       </div>
       <div className="absolute -bottom-14 left-1/2 -translate-x-1/2">
-        <ArrowButton 
-          direction="down" 
-          onClick={() => {}}
-          onMouseDown={() => startMouseMovement('down')}
-          onMouseUp={() => stopMouseMovement('down')}
-        />
+        <ArrowButton direction="down" />
       </div>
 
       {/* Main canvas */}
