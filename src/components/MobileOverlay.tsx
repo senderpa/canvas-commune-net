@@ -76,7 +76,7 @@ const MobileOverlay = ({
       </div>
 
       {/* Color picker button */}
-      <div className="absolute top-20 left-4 z-20">
+      <div className="absolute top-32 left-4 z-20">
         <button
           onClick={() => setIsColorPickerOpen(true)}
           className="w-12 h-12 rounded-lg border-2 border-border shadow-lg hover:scale-110 transition-transform"
@@ -84,20 +84,29 @@ const MobileOverlay = ({
         />
       </div>
 
-      {/* Size slider */}
-      <div className="absolute top-20 right-4 z-20">
+      {/* Size slider - horizontal */}
+      <div className="absolute top-16 left-4 right-4 z-20">
         <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3">
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-xs text-muted-foreground">Size</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">Size:</span>
             <input
               type="range"
               min="1"
               max="20"
               value={paintState.size}
               onChange={(e) => onSizeChange(Number(e.target.value))}
-              className="w-16 h-2 bg-muted rounded-lg appearance-none cursor-pointer transform -rotate-90"
+              className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
             />
-            <span className="text-xs font-mono">{paintState.size}</span>
+            <span className="text-xs font-mono w-6 text-center">{paintState.size}</span>
+            <div
+              className="rounded-full border border-border"
+              style={{
+                width: `${Math.max(4, paintState.size)}px`,
+                height: `${Math.max(4, paintState.size)}px`,
+                backgroundColor: paintState.tool === 'eraser' ? 'transparent' : paintState.color,
+                borderStyle: paintState.tool === 'eraser' ? 'dashed' : 'solid'
+              }}
+            />
           </div>
         </div>
       </div>

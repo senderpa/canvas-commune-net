@@ -119,6 +119,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
   }, [hue, value]);
 
   const handleWheelTouch = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
     const canvas = wheelRef.current;
     if (!canvas) return;
     
@@ -143,22 +144,22 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     }
   }, []);
 
-  const handleColorSelect = useCallback((newColor: string) => {
-    // Add to recent colors (keep last 5 unique)
-    setRecentColors(prev => {
-      const updated = [newColor, ...prev.filter(c => c !== newColor)].slice(0, 5);
-      localStorage.setItem('recent-colors', JSON.stringify(updated));
-      return updated;
-    });
-    
-    onColorChange(newColor);
-  }, [onColorChange]);
-
-  // Update color when HSV changes
+  // Update color when HSV changes (debounced to prevent glitching)
   useEffect(() => {
-    const newColor = hsvToHex(hue, saturation, value);
-    handleColorSelect(newColor);
-  }, [hue, saturation, value, hsvToHex, handleColorSelect]);
+    const timeout = setTimeout(() => {
+      const newColor = hsvToHex(hue, saturation, value);
+      onColorChange(newColor);
+      
+      // Add to recent colors (keep last 5 unique)
+      setRecentColors(prev => {
+        const updated = [newColor, ...prev.filter(c => c !== newColor)].slice(0, 5);
+        localStorage.setItem('recent-colors', JSON.stringify(updated));
+        return updated;
+      });
+    }, 50);
+    
+    return () => clearTimeout(timeout);
+  }, [hue, saturation, value, hsvToHex, onColorChange]);
 
   if (!isOpen) return null;
 
@@ -220,10 +221,17 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
                   setHue(h);
                   setSaturation(s);
                   setValue(v);
+                  onClose();
                 }}
               />
             ))}
           </div>
+        </div>
+
+        <div className="mt-4">
+          <Button onClick={onClose} className="w-full">
+            Done
+          </Button>
         </div>
       </div>
     </div>

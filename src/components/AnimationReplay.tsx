@@ -20,6 +20,7 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [currentStrokeIndex, setCurrentStrokeIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isReverse, setIsReverse] = useState(true); // Start with reverse
   const [speed, setSpeed] = useState(1);
   const [zoom, setZoom] = useState(0.15); // Start zoomed out to show full canvas
   const [panX, setPanX] = useState(1581); // Center of world
@@ -109,25 +110,40 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
     }
   }, [currentStrokeIndex, sortedStrokes, drawStroke, zoom, panX, panY, canvasSize]);
 
-  // Animation loop - auto-start when opened
+  // Animation loop - auto-start when opened, start from end for reverse
   useEffect(() => {
     if (isOpen && sortedStrokes.length > 0) {
       setIsPlaying(true);
-      setCurrentStrokeIndex(0);
+      setCurrentStrokeIndex(sortedStrokes.length - 1); // Start from end for reverse
+      setIsReverse(true);
     }
   }, [isOpen, sortedStrokes.length]);
 
   useEffect(() => {
-    if (isPlaying && currentStrokeIndex < sortedStrokes.length - 1) {
+    if (isPlaying) {
       const timeout = setTimeout(() => {
-        setCurrentStrokeIndex(prev => prev + 1);
+        if (isReverse) {
+          // Going backward
+          if (currentStrokeIndex > 0) {
+            setCurrentStrokeIndex(prev => prev - 1);
+          } else {
+            // Reached start, switch to forward
+            setIsReverse(false);
+          }
+        } else {
+          // Going forward
+          if (currentStrokeIndex < sortedStrokes.length - 1) {
+            setCurrentStrokeIndex(prev => prev + 1);
+          } else {
+            // Reached end, switch to reverse
+            setIsReverse(true);
+          }
+        }
       }, Math.max(50, 200 / speed));
 
       return () => clearTimeout(timeout);
-    } else if (currentStrokeIndex >= sortedStrokes.length - 1) {
-      setIsPlaying(false);
     }
-  }, [isPlaying, currentStrokeIndex, sortedStrokes.length, speed]);
+  }, [isPlaying, currentStrokeIndex, sortedStrokes.length, speed, isReverse]);
 
   // Initialize canvas
   useEffect(() => {
@@ -141,7 +157,8 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
 
   const handlePlay = () => setIsPlaying(!isPlaying);
   const handleReset = () => {
-    setCurrentStrokeIndex(0);
+    setCurrentStrokeIndex(sortedStrokes.length - 1);
+    setIsReverse(true);
     setIsPlaying(false);
   };
 
@@ -274,7 +291,7 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
             </div>
             
             <div className="flex-1 text-center text-sm text-muted-foreground">
-              {currentStrokeIndex + 1} / {sortedStrokes.length} strokes
+              {currentStrokeIndex + 1} / {sortedStrokes.length} strokes {isReverse ? '⏪' : '⏩'}
             </div>
           </div>
 
