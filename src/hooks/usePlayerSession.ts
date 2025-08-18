@@ -41,13 +41,30 @@ export const usePlayerSession = () => {
     playerId: null,
   });
 
-  const [playerId] = useState(() => 
-    Math.random().toString(36).substring(2) + Date.now().toString(36)
-  );
+  const [playerId] = useState(() => {
+    // Try to get existing playerId from localStorage
+    let storedId = localStorage.getItem('playerId');
+    if (!storedId) {
+      storedId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      localStorage.setItem('playerId', storedId);
+    }
+    return storedId;
+  });
 
   // Join session (only called when clicking "Start Painting")
   const joinSession = useCallback(async () => {
     try {
+      // First, clean up any existing sessions for this playerId to prevent duplicates on reload
+      await supabase
+        .from('player_sessions')
+        .delete()
+        .eq('player_id', playerId);
+      
+      await supabase
+        .from('player_queue')
+        .delete()
+        .eq('player_id', playerId);
+
       // Check current active player count
       const { data: sessions, error: countError } = await supabase
         .from('player_sessions')

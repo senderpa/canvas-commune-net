@@ -34,16 +34,18 @@ const Index = () => {
     y: Math.floor(Math.random() * (10000 - 512))
   }));
   
-  // Generate new random color on each page load (ensure it works)
+  // Generate new random color on each page load (desktop only)
   useEffect(() => {
-    const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
-    const newColor = colors[Math.floor(Math.random() * colors.length)];
-    setPaintState(prev => ({ ...prev, color: newColor }));
-    console.log('Random color generated:', newColor);
-  }, []);
+    if (!isMobile) {
+      const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
+      const newColor = colors[Math.floor(Math.random() * colors.length)];
+      setPaintState(prev => ({ ...prev, color: newColor }));
+      console.log('Random color generated:', newColor);
+    }
+  }, [isMobile]);
   
   const [paintState, setPaintState] = useState<PaintState>({
-    color: '#ff0080', // Will be overridden by useEffect
+    color: isMobile ? '#000000' : '#ff0080', // Black for mobile, will be overridden by useEffect on desktop
     tool: 'brush',
     size: 3,
     ...initialPosition
@@ -249,8 +251,8 @@ const Index = () => {
 
       {isStarted && sessionState.isConnected && (
         <>
-          {/* Main canvas area - always centered */}
-          <div className="absolute inset-0 flex items-center justify-center">
+          {/* Main canvas area - centered with mobile margin */}
+          <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? 'mt-36' : ''}`}>
             <WorldCanvas 
               paintState={paintState}
               strokes={canvasStrokes}
