@@ -105,35 +105,13 @@ const MobileOverlay = ({
         </div>
       </div>
 
-      {/* Compact Mobile Stats - Bottom horizontal */}
-      <div className="absolute bottom-20 left-4 right-4 z-20">
-        <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-xl">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1">
-                <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-creative-primary animate-pulse' : 'bg-muted'}`} />
-                <span className="text-muted-foreground">Players:</span>
-                <span className={`font-medium ${isConnected ? 'text-creative-primary' : 'text-muted-foreground'}`}>
-                  {playerCount}/100
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Strokes:</span>
-                <span className="font-medium">{strokeCount}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Ping:</span>
-                <span className="text-green-400 font-medium">42ms</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-1.5 h-1.5 bg-green-400 rounded-full" />
-                <span className="text-green-400">Synced</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Player Stats - Bottom Left */}
+      <div className="absolute bottom-20 left-4 z-20">
+        <PlayerStats 
+          strokeCount={strokeCount} 
+          playerCount={playerCount}
+          isConnected={isConnected}
+        />
       </div>
 
       {/* Mobile controls */}
