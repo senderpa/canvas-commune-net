@@ -5,6 +5,7 @@ import ToolBar from '@/components/ToolBar';
 import PlayerStats from '@/components/PlayerStats';
 import InfoDialog from '@/components/InfoDialog';
 import AnimationReplay from '@/components/AnimationReplay';
+import WorldMinimap from '@/components/WorldMinimap';
 import MobileOverlay from '@/components/MobileOverlay';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -43,11 +44,27 @@ const Index = () => {
   
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
+  const [isMinimapExpanded, setIsMinimapExpanded] = useState(false);
   
-  // Reset and start fresh - clear localStorage
+  // Don't reset - keep all strokes persistent
   useEffect(() => {
-    localStorage.removeItem('multipainter-strokes');
-    localStorage.removeItem('multipainter-stroke-count');
+    // Load existing strokes from localStorage on startup
+    try {
+      const savedStrokes = localStorage.getItem('multipainter-strokes');
+      const savedStrokeCount = localStorage.getItem('multipainter-stroke-count');
+      
+      if (savedStrokes) {
+        const parsedStrokes = JSON.parse(savedStrokes);
+        setStrokes(parsedStrokes);
+        setStrokeCount(parsedStrokes.length);
+      }
+      
+      if (savedStrokeCount) {
+        setStrokeCount(parseInt(savedStrokeCount));
+      }
+    } catch (error) {
+      console.error('Failed to load strokes from localStorage:', error);
+    }
   }, []);
   
   // Load strokes from localStorage on startup (now empty)
@@ -248,6 +265,15 @@ const Index = () => {
           strokeCount={strokeCount}
         />
       )}
+
+      {/* World Minimap */}
+      <WorldMinimap
+        worldX={paintState.x}
+        worldY={paintState.y}
+        strokes={strokes}
+        isExpanded={isMinimapExpanded}
+        onToggleExpanded={() => setIsMinimapExpanded(!isMinimapExpanded)}
+      />
 
       {/* Dialogs */}
       <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />

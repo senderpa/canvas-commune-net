@@ -267,74 +267,6 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     currentStrokeRef.current = [];
   }, [onStroke, paintState]);
 
-  // Arrow button system with pink toggle state
-  const ArrowButton = ({ direction }: { direction: string }) => {
-    const [isPressed, setIsPressed] = useState(false);
-    const animationRef = useRef<number>();
-    
-    const icons = {
-      up: "M5 15l7-7 7 7",
-      down: "M19 9l-7 7-7-7", 
-      left: "M15 19l-7-7 7-7",
-      right: "M9 5l7 7-7 7"
-    };
-
-    const getMovement = (dir: string) => {
-      switch (dir) {
-        case 'up': return { x: 0, y: -15 };
-        case 'down': return { x: 0, y: 15 };
-        case 'left': return { x: -15, y: 0 };
-        case 'right': return { x: 15, y: 0 };
-        default: return { x: 0, y: 0 };
-      }
-    };
-
-    const startMovement = (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault();
-      setIsPressed(true);
-      
-      const movement = getMovement(direction);
-      
-      const move = () => {
-        onMove(movement.x, movement.y);
-        animationRef.current = requestAnimationFrame(move);
-      };
-
-      move();
-    };
-
-    const stopMovement = (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault();
-      setIsPressed(false);
-      
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = undefined;
-      }
-    };
-
-    return (
-      <button
-        onMouseDown={startMovement}
-        onMouseUp={stopMovement}
-        onMouseLeave={stopMovement}
-        onTouchStart={startMovement}
-        onTouchEnd={stopMovement}
-        onTouchCancel={stopMovement}
-        onContextMenu={(e) => e.preventDefault()}
-        className={`absolute w-10 h-10 border border-border rounded-lg transition-all duration-200 flex items-center justify-center shadow-lg select-none touch-manipulation ${
-          isPressed 
-            ? 'bg-pink-500 text-white scale-95 shadow-pink-500/50' 
-            : 'bg-card/80 hover:bg-card'
-        }`}
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icons[direction as keyof typeof icons]} />
-        </svg>
-      </button>
-    );
-  };
-
   return (
     <div className="relative">
       {/* Edge indicators */}
@@ -344,33 +276,6 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
         worldSize={1000000}
         viewportSize={512}
       />
-
-      {/* Navigation arrows around canvas */}
-      <div className="absolute -top-14 left-1/2 -translate-x-1/2">
-        <ArrowButton direction="up" />
-      </div>
-      <div className="absolute top-1/2 -left-14 -translate-y-1/2">
-        <ArrowButton direction="left" />
-      </div>
-      <div className="absolute top-1/2 -right-14 -translate-y-1/2">
-        <ArrowButton direction="right" />
-      </div>
-      <div className="absolute -bottom-14 left-1/2 -translate-x-1/2">
-        <ArrowButton direction="down" />
-      </div>
-      
-      {/* Center/Stop button */}
-      <div className="absolute -top-14 left-1/2 -translate-x-1/2 translate-x-16">
-        <button
-          onClick={() => onMove(0, 0)}
-          className="w-10 h-10 bg-card/80 border border-border rounded-lg hover:bg-card transition-all duration-200 flex items-center justify-center shadow-lg select-none"
-          title="Center view"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-        </button>
-      </div>
 
       {/* Main canvas */}
       <canvas
