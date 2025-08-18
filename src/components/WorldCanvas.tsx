@@ -7,7 +7,7 @@ interface Stroke {
   points: { x: number; y: number }[];
   color: string;
   size: number;
-  tool: 'brush' | 'eraser';
+  tool: 'brush';
   timestamp: number;
 }
 
@@ -33,7 +33,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     
-    const edgeThreshold = 80; // Reduced from 120 - pixels from edge to start panning
+    const edgeThreshold = 40; // Much smaller - only very close to border
     const panSpeed = 2; // Reduced from 3 for smoother movement
     
     let deltaX = 0;
@@ -110,8 +110,6 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
 
     const viewportPoints = stroke.points.map(point => worldToViewport(point.x, point.y));
     
-    // Set composite operation for eraser
-    ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
     ctx.strokeStyle = stroke.color;
     ctx.lineWidth = stroke.size;
     ctx.lineCap = 'round';
@@ -133,9 +131,6 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       }
       ctx.stroke();
     }
-    
-    // Reset composite operation
-    ctx.globalCompositeOperation = 'source-over';
   }, [worldToViewport]);
 
   // Render all visible strokes including current stroke being drawn

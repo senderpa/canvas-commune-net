@@ -14,7 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
 
-export type Tool = 'brush' | 'eraser';
+export type Tool = 'brush';
 
 export interface PaintState {
   color: string;
@@ -90,7 +90,7 @@ const Index = () => {
     points: { x: number; y: number }[];
     color: string;
     size: number;
-    tool: 'brush' | 'eraser';
+    tool: 'brush';
   }) => {
     // Ensure all stroke points are within world bounds
     const validPoints = stroke.points.filter(point => 
@@ -153,15 +153,17 @@ const Index = () => {
     };
   }, [targetPosition]);
 
-  // Convert real-time strokes to canvas format
-  const canvasStrokes = strokes.map(stroke => ({
-    id: stroke.id,
-    points: stroke.points,
-    color: stroke.color,
-    size: stroke.size,
-    tool: stroke.tool,
-    timestamp: new Date(stroke.created_at).getTime()
-  }));
+  // Convert real-time strokes to canvas format (filter out eraser strokes)
+  const canvasStrokes = strokes
+    .filter(stroke => stroke.tool === 'brush') // Only show brush strokes
+    .map(stroke => ({
+      id: stroke.id,
+      points: stroke.points,
+      color: stroke.color,
+      size: stroke.size,
+      tool: 'brush' as const,
+      timestamp: new Date(stroke.created_at).getTime()
+    }));
 
   return (
     <div 

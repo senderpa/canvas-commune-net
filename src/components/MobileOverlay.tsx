@@ -39,26 +39,14 @@ const MobileOverlay = ({
       {/* Top toolbar */}
       <div className="absolute top-4 left-4 right-4 z-20">
         <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 flex items-center justify-between">
-          {/* Tool selection */}
+          {/* Tool indicator - only brush */}
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={paintState.tool === 'brush' ? 'default' : 'outline'}
-              onClick={() => onToolChange('brush')}
-            >
+            <div className="bg-primary text-primary-foreground rounded px-2 py-1 flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
-            </Button>
-            <Button
-              size="sm"
-              variant={paintState.tool === 'eraser' ? 'default' : 'outline'}
-              onClick={() => onToolChange('eraser')}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </Button>
+              <span className="text-xs">Brush</span>
+            </div>
           </div>
 
           {/* Actions */}
@@ -108,8 +96,8 @@ const MobileOverlay = ({
                 style={{
                   width: `${Math.max(4, paintState.size)}px`,
                   height: `${Math.max(4, paintState.size)}px`,
-                  backgroundColor: paintState.tool === 'eraser' ? 'transparent' : paintState.color,
-                  borderStyle: paintState.tool === 'eraser' ? 'dashed' : 'solid'
+                  backgroundColor: paintState.color,
+                  borderStyle: 'solid'
                 }}
               />
             </div>
