@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { PaintState } from '@/pages/Index';
 import EdgeIndicators from './EdgeIndicators';
 
@@ -22,82 +22,56 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
-  const keysRef = useRef<Set<string>>(new Set());
-  const keyTimesRef = useRef<Map<string, number>>(new Map());
-  const animationRef = useRef<number>();
+  const edgePanRef = useRef<number>();
 
-  // Continuous keyboard movement with acceleration
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        e.preventDefault();
-        if (!keysRef.current.has(e.key)) {
-          keysRef.current.add(e.key);
-          keyTimesRef.current.set(e.key, Date.now());
-        }
+  // Edge panning when painting near borders
+  const handleEdgePanning = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !isDrawingRef.current) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    
+    const edgeThreshold = 50; // Pixels from edge to start panning
+    const panSpeed = 3;
+    
+    let deltaX = 0;
+    let deltaY = 0;
+    
+    // Check edges and calculate pan direction
+    if (x < edgeThreshold) deltaX = -panSpeed; // Left edge
+    if (x > 512 - edgeThreshold) deltaX = panSpeed; // Right edge
+    if (y < edgeThreshold) deltaY = -panSpeed; // Top edge
+    if (y > 512 - edgeThreshold) deltaY = panSpeed; // Bottom edge
+    
+    if (deltaX !== 0 || deltaY !== 0) {
+      onMove(deltaX, deltaY);
+      
+      // Continue panning while drawing near edge
+      if (edgePanRef.current) {
+        cancelAnimationFrame(edgePanRef.current);
       }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keysRef.current.delete(e.key);
-      keyTimesRef.current.delete(e.key);
-    };
-
-    const updateMovement = () => {
-      let deltaX = 0;
-      let deltaY = 0;
-      const currentTime = Date.now();
-
-      keysRef.current.forEach(key => {
-        const startTime = keyTimesRef.current.get(key) || currentTime;
-        const holdDuration = (currentTime - startTime) / 1000; // seconds
-        
-        // Calculate speed based on hold duration - 3x faster
-        // 0-10s: slow (3-9x), 10-30s: medium (9-24x), 30s+: fast (24x)
-        let speed;
-        if (holdDuration < 10) {
-          speed = 3 + (holdDuration / 10) * 6; // 3 to 9
-        } else if (holdDuration < 30) {
-          speed = 9 + ((holdDuration - 10) / 20) * 15; // 9 to 24
-        } else {
-          speed = 24; // max speed
-        }
-
-        switch (key) {
-          case 'ArrowUp':
-            deltaY -= speed;
-            break;
-          case 'ArrowDown':
-            deltaY += speed;
-            break;
-          case 'ArrowLeft':
-            deltaX -= speed;
-            break;
-          case 'ArrowRight':
-            deltaX += speed;
-            break;
-        }
+      edgePanRef.current = requestAnimationFrame(() => {
+        handleEdgePanning(clientX, clientY);
       });
-
-      if (deltaX !== 0 || deltaY !== 0) {
-        onMove(deltaX, deltaY);
+    } else {
+      // Stop panning when not near edge
+      if (edgePanRef.current) {
+        cancelAnimationFrame(edgePanRef.current);
+        edgePanRef.current = undefined;
       }
-
-      animationRef.current = requestAnimationFrame(updateMovement);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    animationRef.current = requestAnimationFrame(updateMovement);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
+    }
   }, [onMove]);
+
+  // Stop edge panning when drawing stops
+  useEffect(() => {
+    return () => {
+      if (edgePanRef.current) {
+        cancelAnimationFrame(edgePanRef.current);
+      }
+    };
+  }, []);
 
   // Convert viewport coordinates to world coordinates
   const viewportToWorld = useCallback((viewportX: number, viewportY: number) => {
@@ -250,7 +224,10 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       ctx.lineJoin = 'round';
       ctx.stroke();
     }
-  }, [getCanvasPoint, viewportToWorld, worldToViewport, paintState]);
+
+    // Handle edge panning while drawing
+    handleEdgePanning(e.clientX, e.clientY);
+  }, [getCanvasPoint, viewportToWorld, worldToViewport, paintState, handleEdgePanning]);
 
   const handlePointerUp = useCallback(() => {
     if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
@@ -265,6 +242,12 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     
     isDrawingRef.current = false;
     currentStrokeRef.current = [];
+    
+    // Stop edge panning
+    if (edgePanRef.current) {
+      cancelAnimationFrame(edgePanRef.current);
+      edgePanRef.current = undefined;
+    }
   }, [onStroke, paintState]);
 
   return (
@@ -273,7 +256,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       <EdgeIndicators
         worldX={paintState.x}
         worldY={paintState.y}
-        worldSize={1000}
+        worldSize={3162}
         viewportSize={512}
       />
 

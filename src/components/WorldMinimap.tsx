@@ -21,13 +21,13 @@ interface WorldMinimapProps {
 const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }: WorldMinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(500); // Center of world
-  const [panY, setPanY] = useState(500); // Center of world
+  const [panX, setPanX] = useState(1581); // Center of world
+  const [panY, setPanY] = useState(1581); // Center of world
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [isBlinking, setIsBlinking] = useState(true);
 
-  const worldSize = 1000;
+  const worldSize = 3162;
   const minimapSize = isExpanded ? 600 : 150;
 
   // Blinking animation for player position

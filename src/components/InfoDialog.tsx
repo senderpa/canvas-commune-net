@@ -29,7 +29,7 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
           <div className="space-y-2">
             <h4 className="font-medium">The Canvas</h4>
             <p className="text-muted-foreground leading-relaxed">
-              A massive 1,000,000 × 1,000,000 pixel collaborative artwork where anyone can paint anonymously. 
+              A massive 3162 × 3162 pixel (10 million pixels total) collaborative artwork where anyone can paint anonymously. 
               Your creations become part of a living, evolving masterpiece.
             </p>
           </div>
@@ -37,7 +37,7 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
           <div className="space-y-2">
             <h4 className="font-medium">How to Paint</h4>
             <ul className="text-muted-foreground space-y-1 text-xs">
-              <li>• Use arrow keys (desktop) or touch controls (mobile) to move</li>
+              <li>• Paint near screen edges to move around the canvas</li>
               <li>• Click/tap and drag to paint with the selected brush</li>
               <li>• Choose colors with the color wheel on the left</li>
               <li>• Switch between brush and eraser tools</li>
