@@ -6,17 +6,16 @@ interface PlayerStatsProps {
 
 const PlayerStats = ({ strokeCount }: PlayerStatsProps) => {
   const [stats, setStats] = useState({
-    activePlayers: 247,
+    activePlayers: 1, // Start with just this player
     ping: 42,
     saving: false
   });
 
-  // Simulate live updates
+  // Simulate realistic updates (for now just ping and save status)
   useEffect(() => {
     const interval = setInterval(() => {
       setStats(prev => ({
         ...prev,
-        activePlayers: 200 + Math.floor(Math.random() * 100),
         ping: 30 + Math.floor(Math.random() * 50),
         saving: Math.random() > 0.8
       }));

@@ -17,7 +17,7 @@ interface MinimapProps {
 
 const Minimap = ({ worldX, worldY, strokes, onJump, onMove }: MinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const size = 200;
+  const size = 300;
   const worldSize = 1000000;
   const viewportSize = 512;
   
@@ -53,11 +53,13 @@ const Minimap = ({ worldX, worldY, strokes, onJump, onMove }: MinimapProps) => {
       ctx.stroke();
     }
     
-    // Draw all strokes as colored pixels
+    // Draw all strokes as colored pixels across the entire world
     strokes.forEach(stroke => {
+      // Convert world coordinates to minimap coordinates
       const x = (stroke.x / worldSize) * size;
       const y = (stroke.y / worldSize) * size;
-      const pixelSize = Math.max(1, Math.ceil((stroke.size / 10) * 2)); // Scale stroke size for minimap
+      // Scale stroke size for minimap visibility (but keep it small)
+      const pixelSize = Math.max(1, Math.min(3, Math.ceil(stroke.size / 10)));
       
       ctx.fillStyle = stroke.color;
       ctx.fillRect(Math.floor(x), Math.floor(y), pixelSize, pixelSize);

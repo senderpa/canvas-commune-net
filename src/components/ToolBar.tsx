@@ -48,7 +48,7 @@ const ToolBar = ({ tool, size, onToolChange, onSizeChange }: ToolBarProps) => {
               value={[size]}
               onValueChange={(values) => onSizeChange(values[0])}
               min={1}
-              max={10}
+              max={30}
               step={1}
               className="w-full"
             />
