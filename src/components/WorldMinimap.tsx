@@ -14,12 +14,14 @@ interface Stroke {
 interface WorldMinimapProps {
   worldX: number;
   worldY: number;
+  lastStrokeX: number;
+  lastStrokeY: number;
   strokes: Stroke[];
   currentPlayerId?: string;
   onClose: () => void;
 }
 
-const WorldMinimap = ({ worldX, worldY, strokes, currentPlayerId, onClose }: WorldMinimapProps) => {
+const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, currentPlayerId, onClose }: WorldMinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(0.06); // Show full world (10000 pixels in 600px canvas = 0.06)
   const [panX, setPanX] = useState(5000); // Center of world (10000/2)
@@ -170,9 +172,9 @@ const WorldMinimap = ({ worldX, worldY, strokes, currentPlayerId, onClose }: Wor
       }
     });
 
-    // Draw current player position with blinking dot - always visible
-    const playerCanvasX = ((worldX - panX) * zoom) + minimapSize / 2;
-    const playerCanvasY = ((worldY - panY) * zoom) + minimapSize / 2;
+    // Draw current player position with blinking dot - show where last stroke ended
+    const playerCanvasX = ((lastStrokeX - panX) * zoom) + minimapSize / 2;
+    const playerCanvasY = ((lastStrokeY - panY) * zoom) + minimapSize / 2;
 
     // Always draw player dot, make it blink
     ctx.beginPath();
@@ -182,7 +184,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, currentPlayerId, onClose }: Wor
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = Math.max(1, 2 * zoom);
     ctx.stroke();
-  }, [strokes, worldX, worldY, drawStroke, zoom, panX, panY, minimapSize, isBlinking, otherPlayers]);
+  }, [strokes, worldX, worldY, lastStrokeX, lastStrokeY, drawStroke, zoom, panX, panY, minimapSize, isBlinking, otherPlayers]);
 
   // Update canvas when anything changes
   useEffect(() => {
@@ -229,7 +231,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, currentPlayerId, onClose }: Wor
     const worldMouseY = panY + (mouseY - minimapSize / 2) / zoom;
     
     const zoomFactor = e.deltaY > 0 ? 0.8 : 1.25;
-    const newZoom = Math.max(0.1, Math.min(10, zoom * zoomFactor));
+    const newZoom = Math.max(0.017, Math.min(10, zoom * zoomFactor)); // Allow zoom out to 1:17 (0.06/3.5 ≈ 0.017)
     
     setPanX(worldMouseX - (mouseX - minimapSize / 2) / newZoom);
     setPanY(worldMouseY - (mouseY - minimapSize / 2) / newZoom);
@@ -257,8 +259,8 @@ const WorldMinimap = ({ worldX, worldY, strokes, currentPlayerId, onClose }: Wor
               size="sm"
               variant="outline"
               onClick={() => {
-                setPanX(worldX);
-                setPanY(worldY);
+                setPanX(lastStrokeX);
+                setPanY(lastStrokeY);
                 setZoom(2);
               }}
             >

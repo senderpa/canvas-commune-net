@@ -54,6 +54,7 @@ const Index = () => {
   const [isPlayOpen, setIsPlayOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [targetPosition, setTargetPosition] = useState(initialPosition);
+  const [lastStrokePosition, setLastStrokePosition] = useState(initialPosition);
   
   const handleColorChange = useCallback((color: string) => {
     setPaintState(prev => ({ ...prev, color }));
@@ -96,6 +97,10 @@ const Index = () => {
     );
     
     if (validPoints.length > 0 && sessionState.playerId) {
+      // Track the last stroke position (end of last stroke)
+      const lastPoint = validPoints[validPoints.length - 1];
+      setLastStrokePosition({ x: lastPoint.x, y: lastPoint.y });
+      
       // Calculate world position for the stroke (center point)
       const avgX = validPoints.reduce((sum, p) => sum + p.x, 0) / validPoints.length;
       const avgY = validPoints.reduce((sum, p) => sum + p.y, 0) / validPoints.length;
@@ -322,6 +327,8 @@ const Index = () => {
             <WorldMinimap
               worldX={paintState.x}
               worldY={paintState.y}
+              lastStrokeX={lastStrokePosition.x}
+              lastStrokeY={lastStrokePosition.y}
               strokes={canvasStrokes}
               currentPlayerId={sessionState.playerId || undefined}
               onClose={() => setIsMapOpen(false)}
