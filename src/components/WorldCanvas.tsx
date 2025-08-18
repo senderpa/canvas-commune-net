@@ -110,8 +110,9 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
 
     const viewportPoints = stroke.points.map(point => worldToViewport(point.x, point.y));
     
-    ctx.beginPath();
-    ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
+    // Set composite operation for eraser
+    ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = stroke.color;
     ctx.lineWidth = stroke.size;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -121,16 +122,20 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       const point = viewportPoints[0];
       ctx.beginPath();
       ctx.arc(point.x, point.y, stroke.size / 2, 0, 2 * Math.PI);
-      ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
+      ctx.fillStyle = stroke.color;
       ctx.fill();
     } else {
       // Multiple points - draw as connected lines
+      ctx.beginPath();
       ctx.moveTo(viewportPoints[0].x, viewportPoints[0].y);
       for (let i = 1; i < viewportPoints.length; i++) {
         ctx.lineTo(viewportPoints[i].x, viewportPoints[i].y);
       }
       ctx.stroke();
     }
+    
+    // Reset composite operation
+    ctx.globalCompositeOperation = 'source-over';
   }, [worldToViewport]);
 
   // Render all visible strokes including current stroke being drawn
