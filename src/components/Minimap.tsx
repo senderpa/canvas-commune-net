@@ -1,21 +1,21 @@
 import { useRef, useEffect, useCallback } from 'react';
 
 interface Stroke {
-  x: number;
-  y: number;
+  id: string;
+  points: { x: number; y: number }[];
   color: string;
   size: number;
   tool: 'brush' | 'eraser';
+  timestamp: number;
 }
 
 interface MinimapProps {
   worldX: number;
   worldY: number;
   strokes: Stroke[];
-  onJump: (x: number, y: number) => void;
 }
 
-const Minimap = ({ worldX, worldY, strokes, onJump }: MinimapProps) => {
+const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const size = 300;
   const worldSize = 1000000;
@@ -53,18 +53,43 @@ const Minimap = ({ worldX, worldY, strokes, onJump }: MinimapProps) => {
       ctx.stroke();
     }
     
-    // Draw all strokes as colored pixels across the entire world
+    // Draw all strokes as actual scaled lines
     strokes.forEach(stroke => {
-      // Convert world coordinates to minimap coordinates
-      const x = (stroke.x / worldSize) * size;
-      const y = (stroke.y / worldSize) * size;
+      if (stroke.points.length === 0) return;
       
-      // Only draw if within bounds
-      if (x >= 0 && x < size && y >= 0 && y < size) {
-        const pixelSize = Math.max(1, Math.min(2, Math.ceil(stroke.size / 15)));
-        
-        ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
-        ctx.fillRect(Math.floor(x), Math.floor(y), pixelSize, pixelSize);
+      // Convert world coordinates to minimap coordinates
+      const minimapPoints = stroke.points.map(point => ({
+        x: (point.x / worldSize) * size,
+        y: (point.y / worldSize) * size
+      }));
+
+      // Only draw if any point is within bounds
+      const inBounds = minimapPoints.some(point => 
+        point.x >= 0 && point.x < size && point.y >= 0 && point.y < size
+      );
+
+      if (inBounds) {
+        ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
+        ctx.lineWidth = Math.max(0.5, stroke.size / 20); // Scale line width
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        if (minimapPoints.length === 1) {
+          // Single point - draw as small circle
+          const point = minimapPoints[0];
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, Math.max(0.5, stroke.size / 30), 0, 2 * Math.PI);
+          ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
+          ctx.fill();
+        } else {
+          // Multiple points - draw as connected lines
+          ctx.beginPath();
+          ctx.moveTo(minimapPoints[0].x, minimapPoints[0].y);
+          for (let i = 1; i < minimapPoints.length; i++) {
+            ctx.lineTo(minimapPoints[i].x, minimapPoints[i].y);
+          }
+          ctx.stroke();
+        }
       }
     });
     
@@ -90,34 +115,18 @@ const Minimap = ({ worldX, worldY, strokes, onJump }: MinimapProps) => {
     
   }, [worldX, worldY, strokes]);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-    
-    // Convert click position to world coordinates (center the viewport on click)
-    const newWorldX = (clickX / size) * worldSize - viewportSize / 2;
-    const newWorldY = (clickY / size) * worldSize - viewportSize / 2;
-    
-    onJump(newWorldX, newWorldY);
-  }, [onJump]);
-
   return (
     <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-xl">
       <div className="text-xs text-muted-foreground mb-2 text-center">World Map</div>
       
       <canvas
         ref={canvasRef}
-        className="cursor-pointer border border-border rounded bg-white"
+        className="border border-border rounded bg-white"
         style={{ width: `${size}px`, height: `${size}px` }}
-        onClick={handleClick}
       />
       
       <div className="text-xs text-muted-foreground mt-2 text-center">
-        Click to jump • {strokes.length} strokes
+        {strokes.length} strokes • Live view
       </div>
     </div>
   );

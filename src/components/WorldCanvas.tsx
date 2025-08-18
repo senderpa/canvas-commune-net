@@ -2,51 +2,69 @@ import { useRef, useEffect, useCallback } from 'react';
 import { PaintState } from '@/pages/Index';
 
 interface Stroke {
-  x: number;
-  y: number;
+  id: string;
+  points: { x: number; y: number }[];
   color: string;
   size: number;
   tool: 'brush' | 'eraser';
+  timestamp: number;
 }
 
 interface WorldCanvasProps {
   paintState: PaintState;
   strokes: Stroke[];
   onMove: (deltaX: number, deltaY: number) => void;
-  onStroke: (worldX: number, worldY: number, color: string, size: number, tool: 'brush' | 'eraser') => void;
+  onStroke: (stroke: Omit<Stroke, 'id' | 'timestamp'>) => void;
 }
 
 const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
-  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
+  const keysRef = useRef<Set<string>>(new Set());
+  const animationRef = useRef<number>();
 
-  // Keyboard movement
+  // Continuous keyboard movement
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const moveSpeed = 20;
-      switch (e.key) {
-        case 'ArrowUp':
-          e.preventDefault();
-          onMove(0, -moveSpeed);
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          onMove(0, moveSpeed);
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          onMove(-moveSpeed, 0);
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          onMove(moveSpeed, 0);
-          break;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        keysRef.current.add(e.key);
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      keysRef.current.delete(e.key);
+    };
+
+    const updateMovement = () => {
+      const moveSpeed = 3; // Smooth continuous movement
+      let deltaX = 0;
+      let deltaY = 0;
+
+      if (keysRef.current.has('ArrowUp')) deltaY -= moveSpeed;
+      if (keysRef.current.has('ArrowDown')) deltaY += moveSpeed;
+      if (keysRef.current.has('ArrowLeft')) deltaX -= moveSpeed;
+      if (keysRef.current.has('ArrowRight')) deltaX += moveSpeed;
+
+      if (deltaX !== 0 || deltaY !== 0) {
+        onMove(deltaX, deltaY);
+      }
+
+      animationRef.current = requestAnimationFrame(updateMovement);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    animationRef.current = requestAnimationFrame(updateMovement);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
   }, [onMove]);
 
   // Convert viewport coordinates to world coordinates
@@ -77,17 +95,34 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     return { x, y };
   }, []);
 
-  // Draw line between two points
-  const drawLine = useCallback((ctx: CanvasRenderingContext2D, from: {x: number, y: number}, to: {x: number, y: number}, color: string, size: number, tool: 'brush' | 'eraser') => {
+  // Draw stroke as connected lines
+  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke) => {
+    if (stroke.points.length === 0) return;
+
+    const viewportPoints = stroke.points.map(point => worldToViewport(point.x, point.y));
+    
     ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
-    ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
-    ctx.lineWidth = size;
+    ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
+    ctx.lineWidth = stroke.size;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.stroke();
-  }, []);
+
+    if (viewportPoints.length === 1) {
+      // Single point - draw as circle
+      const point = viewportPoints[0];
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, stroke.size / 2, 0, 2 * Math.PI);
+      ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
+      ctx.fill();
+    } else {
+      // Multiple points - draw as connected lines
+      ctx.moveTo(viewportPoints[0].x, viewportPoints[0].y);
+      for (let i = 1; i < viewportPoints.length; i++) {
+        ctx.lineTo(viewportPoints[i].x, viewportPoints[i].y);
+      }
+      ctx.stroke();
+    }
+  }, [worldToViewport]);
 
   // Render all visible strokes
   const renderStrokes = useCallback(() => {
@@ -101,21 +136,22 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, 512, 512);
 
-    // Draw all strokes that are visible in current viewport
+    // Draw all strokes that have points visible in current viewport
     strokes.forEach(stroke => {
-      const viewportPos = worldToViewport(stroke.x, stroke.y);
+      if (stroke.points.length === 0) return;
       
-      // Only draw if stroke is visible in viewport (with some margin)
-      if (viewportPos.x >= -stroke.size && viewportPos.x <= 512 + stroke.size &&
-          viewportPos.y >= -stroke.size && viewportPos.y <= 512 + stroke.size) {
-        
-        ctx.beginPath();
-        ctx.arc(viewportPos.x, viewportPos.y, stroke.size / 2, 0, 2 * Math.PI);
-        ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
-        ctx.fill();
+      // Check if any point of the stroke is visible (with margin)
+      const isVisible = stroke.points.some(point => {
+        const viewportPos = worldToViewport(point.x, point.y);
+        return viewportPos.x >= -stroke.size && viewportPos.x <= 512 + stroke.size &&
+               viewportPos.y >= -stroke.size && viewportPos.y <= 512 + stroke.size;
+      });
+
+      if (isVisible) {
+        drawStroke(ctx, stroke);
       }
     });
-  }, [strokes, worldToViewport]);
+  }, [strokes, worldToViewport, drawStroke]);
 
   // Re-render when viewport or strokes change
   useEffect(() => {
@@ -137,16 +173,13 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     if (!point) return;
 
     isDrawingRef.current = true;
-    lastPointRef.current = point;
+    const worldPos = viewportToWorld(point.x, point.y);
+    currentStrokeRef.current = [worldPos];
     
     const canvas = canvasRef.current;
     if (canvas) {
       canvas.setPointerCapture(e.pointerId);
     }
-
-    // Convert to world coordinates and add stroke
-    const worldPos = viewportToWorld(point.x, point.y);
-    onStroke(worldPos.x, worldPos.y, paintState.color, paintState.size, paintState.tool);
 
     // Draw immediately on canvas
     const ctx = canvas?.getContext('2d');
@@ -156,32 +189,51 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       ctx.fillStyle = paintState.tool === 'eraser' ? '#ffffff' : paintState.color;
       ctx.fill();
     }
-  }, [getCanvasPoint, viewportToWorld, onStroke, paintState]);
+  }, [getCanvasPoint, viewportToWorld, paintState]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDrawingRef.current) return;
 
     const point = getCanvasPoint(e);
-    if (!point || !lastPointRef.current) return;
+    if (!point) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx) return;
 
-    // Draw line from last point to current point
-    drawLine(ctx, lastPointRef.current, point, paintState.color, paintState.size, paintState.tool);
-
-    // Convert to world coordinates and add stroke
+    // Add point to current stroke
     const worldPos = viewportToWorld(point.x, point.y);
-    onStroke(worldPos.x, worldPos.y, paintState.color, paintState.size, paintState.tool);
+    currentStrokeRef.current.push(worldPos);
 
-    lastPointRef.current = point;
-  }, [getCanvasPoint, drawLine, paintState, viewportToWorld, onStroke]);
+    // Draw line to canvas
+    const prevPoint = currentStrokeRef.current[currentStrokeRef.current.length - 2];
+    if (prevPoint) {
+      const prevViewport = worldToViewport(prevPoint.x, prevPoint.y);
+      ctx.beginPath();
+      ctx.moveTo(prevViewport.x, prevViewport.y);
+      ctx.lineTo(point.x, point.y);
+      ctx.strokeStyle = paintState.tool === 'eraser' ? '#ffffff' : paintState.color;
+      ctx.lineWidth = paintState.size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+  }, [getCanvasPoint, viewportToWorld, worldToViewport, paintState]);
 
   const handlePointerUp = useCallback(() => {
+    if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
+      // Send complete stroke
+      onStroke({
+        points: [...currentStrokeRef.current],
+        color: paintState.color,
+        size: paintState.size,
+        tool: paintState.tool
+      });
+    }
+    
     isDrawingRef.current = false;
-    lastPointRef.current = null;
-  }, []);
+    currentStrokeRef.current = [];
+  }, [onStroke, paintState]);
 
   // Navigation arrows around canvas
   const ArrowButton = ({ direction, onClick }: { direction: string; onClick: () => void }) => {

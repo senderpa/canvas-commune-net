@@ -6,6 +6,7 @@ import Minimap from '@/components/Minimap';
 import PlayerStats from '@/components/PlayerStats';
 import MobileControls from '@/components/MobileControls';
 import InfoDialog from '@/components/InfoDialog';
+import AnimationReplay from '@/components/AnimationReplay';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export type Tool = 'brush' | 'eraser';
@@ -36,7 +37,14 @@ const Index = () => {
   
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
-  const [strokes, setStrokes] = useState<Array<{x: number, y: number, color: string, size: number, tool: 'brush' | 'eraser'}>>([]);
+  const [strokes, setStrokes] = useState<Array<{
+    id: string;
+    points: { x: number; y: number }[];
+    color: string;
+    size: number;
+    tool: 'brush' | 'eraser';
+    timestamp: number;
+  }>>([]);
   const [targetPosition, setTargetPosition] = useState(initialPosition);
   const [strokeCount, setStrokeCount] = useState(0);
   
@@ -59,10 +67,28 @@ const Index = () => {
     }));
   }, []);
 
-  const handleStroke = useCallback((worldX: number, worldY: number, color: string, size: number, tool: 'brush' | 'eraser') => {
-    // Ensure stroke is within world bounds
-    if (worldX >= 0 && worldX < 1000000 && worldY >= 0 && worldY < 1000000) {
-      setStrokes(prev => [...prev, { x: worldX, y: worldY, color, size, tool }]);
+  const handleStroke = useCallback((stroke: Omit<{
+    id: string;
+    points: { x: number; y: number }[];
+    color: string;
+    size: number;
+    tool: 'brush' | 'eraser';
+    timestamp: number;
+  }, 'id' | 'timestamp'>) => {
+    // Ensure all stroke points are within world bounds
+    const validPoints = stroke.points.filter(point => 
+      point.x >= 0 && point.x < 1000000 && point.y >= 0 && point.y < 1000000
+    );
+    
+    if (validPoints.length > 0) {
+      const newStroke = {
+        ...stroke,
+        points: validPoints,
+        id: Math.random().toString(36).substr(2, 9),
+        timestamp: Date.now()
+      };
+      
+      setStrokes(prev => [...prev, newStroke]);
       setStrokeCount(prev => prev + 1);
     }
   }, []);
@@ -73,6 +99,42 @@ const Index = () => {
     setTargetPosition({ x: newX, y: newY });
   }, []);
 
+  // Simulate other players' strokes every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Add a random stroke from another "player"
+      const colors = ['#ff3366', '#33ff66', '#3366ff', '#ffff33', '#ff33ff', '#33ffff'];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      
+      // Random position in world
+      const startX = Math.random() * 1000000;
+      const startY = Math.random() * 1000000;
+      
+      // Create a random stroke with multiple points
+      const points = [];
+      const numPoints = 5 + Math.floor(Math.random() * 15);
+      
+      for (let i = 0; i < numPoints; i++) {
+        points.push({
+          x: startX + (Math.random() - 0.5) * 100,
+          y: startY + (Math.random() - 0.5) * 100
+        });
+      }
+      
+      const newStroke = {
+        id: 'bot-' + Math.random().toString(36).substr(2, 9),
+        points: points,
+        color: randomColor,
+        size: 2 + Math.floor(Math.random() * 8),
+        tool: 'brush' as const,
+        timestamp: Date.now()
+      };
+      
+      setStrokes(prev => [...prev, newStroke]);
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
   // Smooth lerp movement
   useEffect(() => {
     const lerp = (start: number, end: number, factor: number) => {
@@ -144,7 +206,6 @@ const Index = () => {
           worldX={paintState.x}
           worldY={paintState.y}
           strokes={strokes}
-          onJump={handleMinimapJump}
         />
       </div>
 
@@ -183,23 +244,11 @@ const Index = () => {
 
       <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />
       
-      {/* Play Dialog - Simple placeholder for now */}
-      {isPlayOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card p-6 rounded-lg border border-border max-w-md">
-            <h2 className="text-lg font-semibold mb-4">Replay Animation</h2>
-            <p className="text-muted-foreground mb-4">
-              This will show the painting evolution over time. Feature coming soon!
-            </p>
-            <button
-              onClick={() => setIsPlayOpen(false)}
-              className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      <AnimationReplay 
+        strokes={strokes}
+        isOpen={isPlayOpen}
+        onClose={() => setIsPlayOpen(false)}
+      />
     </div>
   );
 };
