@@ -2,12 +2,10 @@ import { useState, useCallback, useEffect } from 'react';
 import WorldCanvas from '@/components/WorldCanvas';
 import ColorPicker from '@/components/ColorPicker';
 import ToolBar from '@/components/ToolBar';
-import SmallMinimap from '@/components/SmallMinimap';
-import MinimapModal from '@/components/MinimapModal';
 import PlayerStats from '@/components/PlayerStats';
-import MobileControls from '@/components/MobileControls';
 import InfoDialog from '@/components/InfoDialog';
 import AnimationReplay from '@/components/AnimationReplay';
+import MobileOverlay from '@/components/MobileOverlay';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export type Tool = 'brush' | 'eraser';
@@ -43,7 +41,6 @@ const Index = () => {
   
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
-  const [isFullMinimapOpen, setIsFullMinimapOpen] = useState(false);
   
   // Reset and start fresh - clear localStorage
   useEffect(() => {
@@ -203,53 +200,48 @@ const Index = () => {
         />
       </div>
 
-      {/* Color picker - left side */}
-      <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10">
-        <ColorPicker 
-          color={paintState.color}
-          onColorChange={handleColorChange}
-        />
-      </div>
+      {/* Desktop UI */}
+      {!isMobile && (
+        <>
+          {/* Color picker - left side */}
+          <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10">
+            <ColorPicker 
+              color={paintState.color}
+              onColorChange={handleColorChange}
+            />
+          </div>
 
-      {/* Toolbar - top */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
-        <ToolBar
-          paintState={paintState}
-          setPaintState={setPaintState}
-          onInfoOpen={() => setIsInfoOpen(true)}
-          onPlayOpen={() => setIsPlayOpen(true)}
-          strokeCount={strokes.length}
-        />
-      </div>
+          {/* Toolbar - top */}
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
+            <ToolBar
+              paintState={paintState}
+              setPaintState={setPaintState}
+              onInfoOpen={() => setIsInfoOpen(true)}
+              onPlayOpen={() => setIsPlayOpen(true)}
+              strokeCount={strokes.length}
+            />
+          </div>
 
-      {/* Player stats - bottom left */}
-      <div className="absolute bottom-6 left-6 z-10">
-        <PlayerStats strokeCount={strokeCount} />
-      </div>
-
-      {/* Mobile controls - bottom center */}
-      {isMobile && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
-          <MobileControls onMove={handleMove} />
-        </div>
+          {/* Player stats - bottom left */}
+          <div className="absolute bottom-6 left-6 z-10">
+            <PlayerStats strokeCount={strokeCount} />
+          </div>
+        </>
       )}
 
-      {/* Small always-visible minimap */}
-      <SmallMinimap
-        worldX={paintState.x}
-        worldY={paintState.y}
-        strokes={strokes}
-        onOpenFullMinimap={() => setIsFullMinimapOpen(true)}
-      />
-
-      {/* Full minimap modal */}
-      <MinimapModal
-        isOpen={isFullMinimapOpen}
-        onClose={() => setIsFullMinimapOpen(false)}
-        worldX={paintState.x}
-        worldY={paintState.y}
-        strokes={strokes}
-      />
+      {/* Mobile UI */}
+      {isMobile && (
+        <MobileOverlay
+          paintState={paintState}
+          onColorChange={handleColorChange}
+          onToolChange={handleToolChange}
+          onSizeChange={handleSizeChange}
+          onMove={handleMove}
+          onInfoOpen={() => setIsInfoOpen(true)}
+          onPlayOpen={() => setIsPlayOpen(true)}
+          strokeCount={strokeCount}
+        />
+      )}
 
       {/* Dialogs */}
       <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />

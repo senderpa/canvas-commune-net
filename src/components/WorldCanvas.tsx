@@ -267,7 +267,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     currentStrokeRef.current = [];
   }, [onStroke, paintState]);
 
-  // Simple arrow movement system
+  // Simple arrow movement system - immediate stop
   const ArrowButton = ({ direction }: { direction: string }) => {
     const icons = {
       up: "M5 15l7-7 7 7",
@@ -276,52 +276,33 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       right: "M9 5l7 7-7 7"
     };
 
-    const intervalRef = useRef<NodeJS.Timeout>();
-    const timeoutRef = useRef<NodeJS.Timeout>();
+    const animationRef = useRef<number>();
 
     const getMovement = (dir: string) => {
       switch (dir) {
-        case 'up': return { x: 0, y: -5 };
-        case 'down': return { x: 0, y: 5 };
-        case 'left': return { x: -5, y: 0 };
-        case 'right': return { x: 5, y: 0 };
+        case 'up': return { x: 0, y: -15 };
+        case 'down': return { x: 0, y: 15 };
+        case 'left': return { x: -15, y: 0 };
+        case 'right': return { x: 15, y: 0 };
         default: return { x: 0, y: 0 };
       }
     };
 
     const startMovement = () => {
       const movement = getMovement(direction);
-      let speed = 5;
-      let accelerationTime = 0;
-
+      
       const move = () => {
-        accelerationTime += 100;
-        
-        // Accelerate over time: 0-10s slow, 10-30s medium, 30s+ fast
-        if (accelerationTime < 10000) {
-          speed = 5 + (accelerationTime / 10000) * 10; // 5 to 15
-        } else if (accelerationTime < 30000) {
-          speed = 15 + ((accelerationTime - 10000) / 20000) * 25; // 15 to 40
-        } else {
-          speed = 40; // max speed
-        }
-
-        onMove(movement.x * (speed / 5), movement.y * (speed / 5));
+        onMove(movement.x, movement.y);
+        animationRef.current = requestAnimationFrame(move);
       };
 
-      // Start immediately
       move();
-      intervalRef.current = setInterval(move, 100);
     };
 
     const stopMovement = () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = undefined;
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = undefined;
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = undefined;
       }
     };
 
@@ -363,6 +344,19 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       </div>
       <div className="absolute -bottom-14 left-1/2 -translate-x-1/2">
         <ArrowButton direction="down" />
+      </div>
+      
+      {/* Center/Stop button */}
+      <div className="absolute -top-14 left-1/2 -translate-x-1/2 translate-x-16">
+        <button
+          onClick={() => onMove(0, 0)}
+          className="w-10 h-10 bg-card/80 border border-border rounded-lg hover:bg-card transition-all duration-200 flex items-center justify-center shadow-lg select-none"
+          title="Center view"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+        </button>
       </div>
 
       {/* Main canvas */}
