@@ -21,11 +21,26 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
   
   const wheelRef = useRef<HTMLCanvasElement>(null);
 
-  // Convert hex to HSV
-  const hexToHsv = useCallback((hex: string) => {
-    const r = parseInt(hex.slice(1, 3), 16) / 255;
-    const g = parseInt(hex.slice(3, 5), 16) / 255;
-    const b = parseInt(hex.slice(5, 7), 16) / 255;
+  // Convert hex or rgba to HSV
+  const hexToHsv = useCallback((colorStr: string) => {
+    let r, g, b;
+    
+    if (colorStr.startsWith('rgba(')) {
+      // Handle rgba format: rgba(255, 0, 0, 0.5)
+      const match = colorStr.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+)?\s*\)/);
+      if (match) {
+        r = parseInt(match[1]) / 255;
+        g = parseInt(match[2]) / 255;
+        b = parseInt(match[3]) / 255;
+      } else {
+        return { h: 0, s: 100, v: 50 }; // fallback
+      }
+    } else {
+      // Handle hex format: #ff0000
+      r = parseInt(colorStr.slice(1, 3), 16) / 255;
+      g = parseInt(colorStr.slice(3, 5), 16) / 255;
+      b = parseInt(colorStr.slice(5, 7), 16) / 255;
+    }
     
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
@@ -82,15 +97,24 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }, []);
 
-  // Initialize HSV from current color
+  // Initialize HSV from current color - only when picker opens or color changes significantly
   useEffect(() => {
-    if (color) {
+    if (color && isOpen) {
       const { h, s, v } = hexToHsv(color);
-      setHue(h);
-      setSaturation(s);
-      setValue(v);
+      // Only update if this is a significantly different color (not just alpha change)
+      const currentColor = hsvToHex(hue, saturation, value, 1);
+      const newColorHex = color.startsWith('rgba(') ? 
+        color.replace(/rgba?\((\d+),\s*(\d+),\s*(\d+).*\)/, (_, r, g, b) => 
+          `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`)
+        : color;
+      
+      if (newColorHex !== currentColor) {
+        setHue(h);
+        setSaturation(s);
+        setValue(v);
+      }
     }
-  }, [color, hexToHsv]);
+  }, [color, isOpen, hexToHsv, hue, saturation, value, hsvToHex]);
 
   // Draw color wheel - always draw on mount and when values change
   useEffect(() => {
