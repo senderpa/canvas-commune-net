@@ -22,30 +22,61 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
   const isDrawingRef = useRef(false);
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
   const keysRef = useRef<Set<string>>(new Set());
+  const keyTimesRef = useRef<Map<string, number>>(new Map());
   const animationRef = useRef<number>();
 
-  // Continuous keyboard movement
+  // Continuous keyboard movement with acceleration
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
-        keysRef.current.add(e.key);
+        if (!keysRef.current.has(e.key)) {
+          keysRef.current.add(e.key);
+          keyTimesRef.current.set(e.key, Date.now());
+        }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       keysRef.current.delete(e.key);
+      keyTimesRef.current.delete(e.key);
     };
 
     const updateMovement = () => {
-      const moveSpeed = 3; // Smooth continuous movement
       let deltaX = 0;
       let deltaY = 0;
+      const currentTime = Date.now();
 
-      if (keysRef.current.has('ArrowUp')) deltaY -= moveSpeed;
-      if (keysRef.current.has('ArrowDown')) deltaY += moveSpeed;
-      if (keysRef.current.has('ArrowLeft')) deltaX -= moveSpeed;
-      if (keysRef.current.has('ArrowRight')) deltaX += moveSpeed;
+      keysRef.current.forEach(key => {
+        const startTime = keyTimesRef.current.get(key) || currentTime;
+        const holdDuration = (currentTime - startTime) / 1000; // seconds
+        
+        // Calculate speed based on hold duration
+        // 0-10s: slow (1-3x), 10-30s: medium (3-8x), 30s+: fast (8x)
+        let speed;
+        if (holdDuration < 10) {
+          speed = 1 + (holdDuration / 10) * 2; // 1 to 3
+        } else if (holdDuration < 30) {
+          speed = 3 + ((holdDuration - 10) / 20) * 5; // 3 to 8
+        } else {
+          speed = 8; // max speed
+        }
+
+        switch (key) {
+          case 'ArrowUp':
+            deltaY -= speed;
+            break;
+          case 'ArrowDown':
+            deltaY += speed;
+            break;
+          case 'ArrowLeft':
+            deltaX -= speed;
+            break;
+          case 'ArrowRight':
+            deltaX += speed;
+            break;
+        }
+      });
 
       if (deltaX !== 0 || deltaY !== 0) {
         onMove(deltaX, deltaY);
@@ -235,8 +266,13 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     currentStrokeRef.current = [];
   }, [onStroke, paintState]);
 
-  // Navigation arrows around canvas
-  const ArrowButton = ({ direction, onClick }: { direction: string; onClick: () => void }) => {
+  // Navigation arrows around canvas with acceleration
+  const ArrowButton = ({ direction, onClick, onMouseDown, onMouseUp }: { 
+    direction: string; 
+    onClick: () => void;
+    onMouseDown: () => void;
+    onMouseUp: () => void;
+  }) => {
     const icons = {
       up: "M5 15l7-7 7 7",
       down: "M19 9l-7 7-7-7", 
@@ -247,7 +283,10 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     return (
       <button
         onClick={onClick}
-        className="absolute w-10 h-10 bg-card/80 border border-border rounded-lg hover:bg-card transition-all duration-200 flex items-center justify-center shadow-lg"
+        onMouseDown={onMouseDown}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        className="absolute w-10 h-10 bg-card/80 border border-border rounded-lg hover:bg-card transition-all duration-200 flex items-center justify-center shadow-lg select-none"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icons[direction as keyof typeof icons]} />
@@ -256,22 +295,107 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     );
   };
 
-  const moveSpeed = 50;
+  // Mouse-based movement with acceleration
+  const mouseKeysRef = useRef<Set<string>>(new Set());
+  const mouseKeyTimesRef = useRef<Map<string, number>>(new Map());
+  const mouseAnimationRef = useRef<number>();
+
+  const startMouseMovement = useCallback((direction: string) => {
+    if (!mouseKeysRef.current.has(direction)) {
+      mouseKeysRef.current.add(direction);
+      mouseKeyTimesRef.current.set(direction, Date.now());
+      
+      const updateMouseMovement = () => {
+        let deltaX = 0;
+        let deltaY = 0;
+        const currentTime = Date.now();
+
+        mouseKeysRef.current.forEach(dir => {
+          const startTime = mouseKeyTimesRef.current.get(dir) || currentTime;
+          const holdDuration = (currentTime - startTime) / 1000;
+          
+          // Same acceleration as keyboard
+          let speed;
+          if (holdDuration < 10) {
+            speed = 1 + (holdDuration / 10) * 2;
+          } else if (holdDuration < 30) {
+            speed = 3 + ((holdDuration - 10) / 20) * 5;
+          } else {
+            speed = 8;
+          }
+
+          switch (dir) {
+            case 'up': deltaY -= speed; break;
+            case 'down': deltaY += speed; break;
+            case 'left': deltaX -= speed; break;
+            case 'right': deltaX += speed; break;
+          }
+        });
+
+        if (deltaX !== 0 || deltaY !== 0) {
+          onMove(deltaX, deltaY);
+        }
+
+        if (mouseKeysRef.current.size > 0) {
+          mouseAnimationRef.current = requestAnimationFrame(updateMouseMovement);
+        }
+      };
+
+      updateMouseMovement();
+    }
+  }, [onMove]);
+
+  const stopMouseMovement = useCallback((direction: string) => {
+    mouseKeysRef.current.delete(direction);
+    mouseKeyTimesRef.current.delete(direction);
+    
+    if (mouseKeysRef.current.size === 0 && mouseAnimationRef.current) {
+      cancelAnimationFrame(mouseAnimationRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (mouseAnimationRef.current) {
+        cancelAnimationFrame(mouseAnimationRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="relative">
       {/* Navigation arrows around canvas */}
       <div className="absolute -top-14 left-1/2 -translate-x-1/2">
-        <ArrowButton direction="up" onClick={() => onMove(0, -moveSpeed)} />
+        <ArrowButton 
+          direction="up" 
+          onClick={() => {}}
+          onMouseDown={() => startMouseMovement('up')}
+          onMouseUp={() => stopMouseMovement('up')}
+        />
       </div>
       <div className="absolute top-1/2 -left-14 -translate-y-1/2">
-        <ArrowButton direction="left" onClick={() => onMove(-moveSpeed, 0)} />
+        <ArrowButton 
+          direction="left" 
+          onClick={() => {}}
+          onMouseDown={() => startMouseMovement('left')}
+          onMouseUp={() => stopMouseMovement('left')}
+        />
       </div>
       <div className="absolute top-1/2 -right-14 -translate-y-1/2">
-        <ArrowButton direction="right" onClick={() => onMove(moveSpeed, 0)} />
+        <ArrowButton 
+          direction="right" 
+          onClick={() => {}}
+          onMouseDown={() => startMouseMovement('right')}
+          onMouseUp={() => stopMouseMovement('right')}
+        />
       </div>
       <div className="absolute -bottom-14 left-1/2 -translate-x-1/2">
-        <ArrowButton direction="down" onClick={() => onMove(0, moveSpeed)} />
+        <ArrowButton 
+          direction="down" 
+          onClick={() => {}}
+          onMouseDown={() => startMouseMovement('down')}
+          onMouseUp={() => stopMouseMovement('down')}
+        />
       </div>
 
       {/* Main canvas */}

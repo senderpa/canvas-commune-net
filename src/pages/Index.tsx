@@ -37,6 +37,8 @@ const Index = () => {
   
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
+  
+  // Load strokes from localStorage on startup
   const [strokes, setStrokes] = useState<Array<{
     id: string;
     points: { x: number; y: number }[];
@@ -44,9 +46,35 @@ const Index = () => {
     size: number;
     tool: 'brush' | 'eraser';
     timestamp: number;
-  }>>([]);
+  }>>(() => {
+    try {
+      const saved = localStorage.getItem('multipainter-strokes');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Failed to load strokes from localStorage:', error);
+      return [];
+    }
+  });
+  
   const [targetPosition, setTargetPosition] = useState(initialPosition);
-  const [strokeCount, setStrokeCount] = useState(0);
+  const [strokeCount, setStrokeCount] = useState(() => {
+    try {
+      const saved = localStorage.getItem('multipainter-stroke-count');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch (error) {
+      return 0;
+    }
+  });
+
+  // Save strokes to localStorage whenever strokes change
+  useEffect(() => {
+    try {
+      localStorage.setItem('multipainter-strokes', JSON.stringify(strokes));
+      localStorage.setItem('multipainter-stroke-count', strokeCount.toString());
+    } catch (error) {
+      console.error('Failed to save strokes to localStorage:', error);
+    }
+  }, [strokes, strokeCount]);
   
   const handleColorChange = useCallback((color: string) => {
     setPaintState(prev => ({ ...prev, color }));
