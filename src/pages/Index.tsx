@@ -9,6 +9,7 @@ import WorldMinimap from '@/components/WorldMinimap';
 import MobileOverlay from '@/components/MobileOverlay';
 import QueueOverlay from '@/components/QueueOverlay';
 import KickedOverlay from '@/components/KickedOverlay';
+import { LivePreview } from '@/components/LivePreview';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
@@ -210,6 +211,9 @@ const Index = () => {
                 ⏰ 30 minute sessions with 5 minute activity timeout
               </div>
             </div>
+            
+            <LivePreview playerCount={sessionState.playerCount} />
+            
             <button
               onClick={async () => {
                 const success = await joinSession();
