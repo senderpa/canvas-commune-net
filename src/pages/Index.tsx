@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import Canvas from '@/components/Canvas';
+import WorldCanvas from '@/components/WorldCanvas';
 import ColorPicker from '@/components/ColorPicker';
 import ToolBar from '@/components/ToolBar';
 import Minimap from '@/components/Minimap';
@@ -35,7 +35,8 @@ const Index = () => {
   });
   
   const [isInfoOpen, setIsInfoOpen] = useState(false);
-  const [strokes, setStrokes] = useState<Array<{x: number, y: number, color: string, size: number}>>([]);
+  const [isPlayOpen, setIsPlayOpen] = useState(false);
+  const [strokes, setStrokes] = useState<Array<{x: number, y: number, color: string, size: number, tool: 'brush' | 'eraser'}>>([]);
   const [targetPosition, setTargetPosition] = useState(initialPosition);
   const [strokeCount, setStrokeCount] = useState(0);
   
@@ -58,9 +59,12 @@ const Index = () => {
     }));
   }, []);
 
-  const handleStroke = useCallback((worldX: number, worldY: number, color: string, size: number) => {
-    setStrokes(prev => [...prev, { x: worldX, y: worldY, color, size }]);
-    setStrokeCount(prev => prev + 1);
+  const handleStroke = useCallback((worldX: number, worldY: number, color: string, size: number, tool: 'brush' | 'eraser') => {
+    // Ensure stroke is within world bounds
+    if (worldX >= 0 && worldX < 1000000 && worldY >= 0 && worldY < 1000000) {
+      setStrokes(prev => [...prev, { x: worldX, y: worldY, color, size, tool }]);
+      setStrokeCount(prev => prev + 1);
+    }
   }, []);
 
   const handleMinimapJump = useCallback((x: number, y: number) => {
@@ -108,8 +112,9 @@ const Index = () => {
     >
       {/* Main canvas area - always centered */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <Canvas 
+        <WorldCanvas 
           paintState={paintState}
+          strokes={strokes}
           onMove={handleMove}
           onStroke={handleStroke}
         />
@@ -140,7 +145,6 @@ const Index = () => {
           worldY={paintState.y}
           strokes={strokes}
           onJump={handleMinimapJump}
-          onMove={handleMove}
         />
       </div>
 
@@ -149,14 +153,23 @@ const Index = () => {
         <PlayerStats strokeCount={strokeCount} />
       </div>
 
-      {/* Info button - bottom left */}
-      <div className="absolute bottom-6 left-6 z-10">
+      {/* Control buttons - bottom left */}
+      <div className="absolute bottom-6 left-6 z-10 flex gap-3">
         <button
           onClick={() => setIsInfoOpen(true)}
           className="bg-card/80 backdrop-blur-sm border border-border rounded-lg p-3 hover:bg-card/90 transition-all duration-300"
         >
           <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+        
+        <button
+          onClick={() => setIsPlayOpen(true)}
+          className="bg-card/80 backdrop-blur-sm border border-border rounded-lg p-3 hover:bg-card/90 transition-all duration-300"
+        >
+          <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M15 14h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </button>
       </div>
@@ -169,6 +182,24 @@ const Index = () => {
       )}
 
       <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />
+      
+      {/* Play Dialog - Simple placeholder for now */}
+      {isPlayOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-lg border border-border max-w-md">
+            <h2 className="text-lg font-semibold mb-4">Replay Animation</h2>
+            <p className="text-muted-foreground mb-4">
+              This will show the painting evolution over time. Feature coming soon!
+            </p>
+            <button
+              onClick={() => setIsPlayOpen(false)}
+              className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
