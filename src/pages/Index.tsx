@@ -44,7 +44,7 @@ const Index = () => {
   
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
-  const [isMinimapExpanded, setIsMinimapExpanded] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
   
   // Don't reset - keep all strokes persistent
   useEffect(() => {
@@ -231,6 +231,9 @@ const Index = () => {
             <ColorPicker 
               color={paintState.color}
               onColorChange={handleColorChange}
+              size={paintState.size}
+              onSizeChange={handleSizeChange}
+              tool={paintState.tool}
             />
           </div>
 
@@ -241,6 +244,7 @@ const Index = () => {
               setPaintState={setPaintState}
               onInfoOpen={() => setIsInfoOpen(true)}
               onPlayOpen={() => setIsPlayOpen(true)}
+              onMapOpen={() => setIsMapOpen(true)}
               strokeCount={strokes.length}
             />
           </div>
@@ -262,20 +266,13 @@ const Index = () => {
           onMove={handleMove}
           onInfoOpen={() => setIsInfoOpen(true)}
           onPlayOpen={() => setIsPlayOpen(true)}
+          onMapOpen={() => setIsMapOpen(true)}
           strokeCount={strokeCount}
         />
       )}
 
-      {/* World Minimap */}
-      <WorldMinimap
-        worldX={paintState.x}
-        worldY={paintState.y}
-        strokes={strokes}
-        isExpanded={isMinimapExpanded}
-        onToggleExpanded={() => setIsMinimapExpanded(!isMinimapExpanded)}
-      />
 
-      {/* Dialogs */}
+      {/* Dialogs & Overlays */}
       <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />
       
       <AnimationReplay 
@@ -283,6 +280,16 @@ const Index = () => {
         isOpen={isPlayOpen}
         onClose={() => setIsPlayOpen(false)}
       />
+
+      {/* World Map Overlay */}
+      {isMapOpen && (
+        <WorldMinimap
+          worldX={paintState.x}
+          worldY={paintState.y}
+          strokes={strokes}
+          onClose={() => setIsMapOpen(false)}
+        />
+      )}
     </div>
   );
 };

@@ -8,10 +8,11 @@ interface ToolBarProps {
   setPaintState: React.Dispatch<React.SetStateAction<PaintState>>;
   onInfoOpen: () => void;
   onPlayOpen: () => void;
+  onMapOpen: () => void;
   strokeCount: number;
 }
 
-const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, strokeCount }: ToolBarProps) => {
+const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, onMapOpen, strokeCount }: ToolBarProps) => {
   const handleToolChange = (tool: Tool) => {
     setPaintState(prev => ({ ...prev, tool }));
   };
@@ -46,34 +47,15 @@ const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, strokeCoun
           </Button>
         </div>
 
-        {/* Size control */}
-        <div className="flex items-center gap-3 min-w-[120px]">
-          <span className="text-sm text-muted-foreground">Size:</span>
-          <div className="flex-1">
-            <Slider
-              value={[paintState.size]}
-              onValueChange={(values) => handleSizeChange(values[0])}
-              min={1}
-              max={50}
-              step={1}
-              className="w-full"
-            />
-          </div>
-          <span className="text-sm font-medium w-6 text-center">{paintState.size}</span>
-        </div>
 
-        {/* Size preview */}
-        <div className="flex items-center justify-center w-8 h-8">
-          <div
-            className="rounded-full border border-border"
-            style={{
-              width: `${Math.max(2, paintState.size)}px`,
-              height: `${Math.max(2, paintState.size)}px`,
-              backgroundColor: paintState.tool === 'eraser' ? 'transparent' : paintState.color,
-              borderStyle: paintState.tool === 'eraser' ? 'dashed' : 'solid'
-            }}
-          />
-        </div>
+        {/* Map button */}
+        <Button 
+          onClick={onMapOpen}
+          variant="outline" 
+          size="sm"
+        >
+          🗺️ Map
+        </Button>
 
         {/* Animation button */}
         <Button 

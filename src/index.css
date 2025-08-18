@@ -101,4 +101,40 @@ All colors MUST be HSL for consistency.
     padding: 0;
     min-height: 100vh;
   }
+
+  /* Custom slider styles */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-track {
+    @apply bg-muted rounded-lg;
+    height: 8px;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    @apply bg-primary border-2 border-primary-foreground rounded-full;
+    height: 20px;
+    width: 20px;
+    box-shadow: var(--glow-shadow);
+  }
+
+  input[type="range"]::-moz-range-track {
+    @apply bg-muted rounded-lg;
+    height: 8px;
+    border: none;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    @apply bg-primary border-2 border-primary-foreground rounded-full;
+    height: 20px;
+    width: 20px;
+    border: none;
+    box-shadow: var(--glow-shadow);
+  }
 }

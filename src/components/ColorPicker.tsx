@@ -4,9 +4,12 @@ import { Input } from '@/components/ui/input';
 interface ColorPickerProps {
   color: string;
   onColorChange: (color: string) => void;
+  size: number;
+  onSizeChange: (size: number) => void;
+  tool: 'brush' | 'eraser';
 }
 
-const ColorPicker = ({ color, onColorChange }: ColorPickerProps) => {
+const ColorPicker = ({ color, onColorChange, size, onSizeChange, tool }: ColorPickerProps) => {
   const [hue, setHue] = useState(0);
   const [saturation, setSaturation] = useState(100);
   const [value, setValue] = useState(50);
@@ -176,6 +179,31 @@ const ColorPicker = ({ color, onColorChange }: ColorPickerProps) => {
 
   return (
     <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 space-y-4 shadow-xl">
+      {/* Size control - horizontal */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">Size:</span>
+        <div className="flex-1">
+          <input
+            type="range"
+            min="1"
+            max="50"
+            value={size}
+            onChange={(e) => onSizeChange(Number(e.target.value))}
+            className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer slider-thumb"
+          />
+        </div>
+        <span className="text-sm font-medium w-6 text-center">{size}</span>
+        <div
+          className="rounded-full border border-border"
+          style={{
+            width: `${Math.max(4, size)}px`,
+            height: `${Math.max(4, size)}px`,
+            backgroundColor: tool === 'eraser' ? 'transparent' : color,
+            borderStyle: tool === 'eraser' ? 'dashed' : 'solid'
+          }}
+        />
+      </div>
+      
       <div className="flex items-start gap-3">
         {/* Color wheel */}
         <canvas

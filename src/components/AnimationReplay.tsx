@@ -21,7 +21,7 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
   const [currentStrokeIndex, setCurrentStrokeIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [zoom, setZoom] = useState(0.8); // Start zoomed out to see more
+  const [zoom, setZoom] = useState(0.15); // Start zoomed out to show full canvas
   const [panX, setPanX] = useState(1581); // Center of world
   const [panY, setPanY] = useState(1581); // Center of world
   const [isDragging, setIsDragging] = useState(false);
@@ -264,7 +264,7 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setZoom(0.8);
+                  setZoom(0.15);
                   setPanX(worldSize / 2);
                   setPanY(worldSize / 2);
                 }}

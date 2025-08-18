@@ -14,13 +14,12 @@ interface WorldMinimapProps {
   worldX: number;
   worldY: number;
   strokes: Stroke[];
-  isExpanded: boolean;
-  onToggleExpanded: () => void;
+  onClose: () => void;
 }
 
-const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }: WorldMinimapProps) => {
+const WorldMinimap = ({ worldX, worldY, strokes, onClose }: WorldMinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.15); // Start zoomed out to show full world
   const [panX, setPanX] = useState(1581); // Center of world
   const [panY, setPanY] = useState(1581); // Center of world
   const [isDragging, setIsDragging] = useState(false);
@@ -28,7 +27,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
   const [isBlinking, setIsBlinking] = useState(true);
 
   const worldSize = 3162;
-  const minimapSize = isExpanded ? 600 : 150;
+  const minimapSize = 600;
 
   // Blinking animation for player position
   useEffect(() => {
@@ -57,7 +56,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
     if (!isVisible) return;
 
     ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
-    ctx.lineWidth = Math.max(0.1, stroke.size * zoom * (isExpanded ? 2 : 0.5));
+    ctx.lineWidth = Math.max(0.1, stroke.size * zoom * 2);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -65,7 +64,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
       // Single point
       const point = canvasPoints[0];
       ctx.beginPath();
-      ctx.arc(point.x, point.y, Math.max(0.1, stroke.size * zoom * (isExpanded ? 1 : 0.25)), 0, 2 * Math.PI);
+      ctx.arc(point.x, point.y, Math.max(0.1, stroke.size * zoom), 0, 2 * Math.PI);
       ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
       ctx.fill();
     } else {
@@ -77,7 +76,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
       }
       ctx.stroke();
     }
-  }, [zoom, panX, panY, minimapSize, isExpanded]);
+  }, [zoom, panX, panY, minimapSize]);
 
   // Render the complete minimap
   const renderMinimap = useCallback(() => {
@@ -164,13 +163,12 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
 
   // Mouse handlers for expanded mode
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isExpanded) return;
     setIsDragging(true);
     setLastMousePos({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !isExpanded) return;
+    if (!isDragging) return;
     
     const deltaX = e.clientX - lastMousePos.x;
     const deltaY = e.clientY - lastMousePos.y;
@@ -186,7 +184,6 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    if (!isExpanded) return;
     e.preventDefault();
     
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -207,51 +204,48 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
   };
 
   return (
-    <div className={`${isExpanded ? 'fixed inset-0 bg-black/50 flex items-center justify-center z-50' : 'fixed bottom-4 right-4 z-10'}`}>
-      <div className={`bg-card border border-border rounded-lg shadow-xl ${isExpanded ? 'p-6 max-w-4xl w-full mx-4' : 'p-2'}`}>
-        {isExpanded && (
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Complete World Map</h3>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setZoom(0.15);
-                  setPanX(worldSize / 2);
-                  setPanY(worldSize / 2);
-                }}
-              >
-                Fit World
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setPanX(worldX);
-                  setPanY(worldY);
-                  setZoom(2);
-                }}
-              >
-                Go to Me
-              </Button>
-              <Button variant="ghost" size="sm" onClick={onToggleExpanded}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </Button>
-            </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-card border border-border rounded-lg shadow-xl p-6 max-w-4xl w-full mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Complete World Map</h3>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setZoom(0.15);
+                setPanX(worldSize / 2);
+                setPanY(worldSize / 2);
+              }}
+            >
+              Fit World
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setPanX(worldX);
+                setPanY(worldY);
+                setZoom(2);
+              }}
+            >
+              Go to Me
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </Button>
           </div>
-        )}
+        </div>
 
         <div className="relative">
           <canvas
             ref={canvasRef}
             width={minimapSize}
             height={minimapSize}
-            className={`border border-border rounded bg-white ${isExpanded ? 'cursor-move' : 'cursor-pointer'}`}
+            className="border border-border rounded bg-white cursor-move"
             style={{ width: minimapSize, height: minimapSize }}
-            onClick={!isExpanded ? onToggleExpanded : undefined}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -259,25 +253,15 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
             onWheel={handleWheel}
           />
           
-          {isExpanded && (
-            <>
-              <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
-                Scale: {zoom < 1 ? `1:${Math.round(1/zoom)}` : `${Math.round(zoom)}:1`}
-              </div>
-              <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                Center: ({Math.round(panX)}, {Math.round(panY)})
-              </div>
-              <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                💡 Drag to pan, scroll to zoom
-              </div>
-            </>
-          )}
-          
-          {!isExpanded && (
-            <div className="absolute -top-8 right-0 text-xs text-muted-foreground">
-              World Map
-            </div>
-          )}
+          <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
+            Scale: {zoom < 1 ? `1:${Math.round(1/zoom)}` : `${Math.round(zoom)}:1`}
+          </div>
+          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+            Center: ({Math.round(panX)}, {Math.round(panY)})
+          </div>
+          <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+            💡 Drag to pan, scroll to zoom
+          </div>
         </div>
       </div>
     </div>
