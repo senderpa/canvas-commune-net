@@ -14,6 +14,7 @@ import TimeLapse from '@/components/TimeLapse';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
+import { useSessionStrokeCount } from '@/hooks/useSessionStrokeCount';
 
 export type Tool = 'brush';
 
@@ -29,6 +30,7 @@ const Index = () => {
   const isMobile = useIsMobile();
   const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, updatePaintState, resetKick } = usePlayerSession();
   const { strokes, isLoading: strokesLoading, addStroke } = useRealTimeStrokes();
+  const { sessionStrokeCount, incrementStrokeCount, resetStrokeCount } = useSessionStrokeCount(sessionState.playerId, sessionState.isConnected);
   
   // Generate random starting position and color (updated)
   const [initialPosition] = useState(() => ({
@@ -120,10 +122,13 @@ const Index = () => {
         world_y: Math.floor(avgY)
       });
       
+      // Increment session stroke count
+      incrementStrokeCount();
+      
       // Update activity when painting
       updateActivity();
     }
-  }, [addStroke, updateActivity, sessionState.playerId]);
+  }, [addStroke, updateActivity, sessionState.playerId, incrementStrokeCount]);
 
   // Smooth lerp movement
   useEffect(() => {
@@ -262,8 +267,11 @@ const Index = () => {
       {sessionState.isKicked && (
         <KickedOverlay
           reason={sessionState.kickReason}
+          sessionStrokeCount={sessionStrokeCount}
+          playerId={sessionState.playerId}
           onRestart={() => {
             resetKick();
+            resetStrokeCount();
             setIsStarted(false);
           }}
         />

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { Trophy } from 'lucide-react';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
+import HighscoreList from './HighscoreList';
 
 interface TimeLapseProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
   const [panY, setPanY] = useState(5000);
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [isHighscoreOpen, setIsHighscoreOpen] = useState(false);
 
   const canvasSize = 800;
   const worldSize = 10000;
@@ -217,9 +220,19 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
           <h2 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-blue-700 bg-clip-text text-transparent">
             🎬 World Timelapse
           </h2>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            ✕
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setIsHighscoreOpen(true)}
+              className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100/10"
+            >
+              <Trophy className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              ✕
+            </Button>
+          </div>
         </div>
 
         <div className="mb-4 relative">
@@ -314,6 +327,12 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
           </p>
         )}
       </div>
+
+      {/* Highscore List Overlay */}
+      <HighscoreList 
+        isOpen={isHighscoreOpen}
+        onClose={() => setIsHighscoreOpen(false)}
+      />
     </div>
   );
 };

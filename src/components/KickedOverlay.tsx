@@ -1,11 +1,52 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import EmojiPicker from './EmojiPicker';
+import { useHighscores } from '@/hooks/useHighscores';
 
 interface KickedOverlayProps {
   reason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | null;
   onRestart: () => void;
+  sessionStrokeCount?: number;
+  playerId?: string;
 }
 
-const KickedOverlay = ({ reason, onRestart }: KickedOverlayProps) => {
+const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId }: KickedOverlayProps) => {
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedEmojis, setSelectedEmojis] = useState<string[]>([]);
+  const [isSubmittingScore, setIsSubmittingScore] = useState(false);
+  const [scoreSubmitted, setScoreSubmitted] = useState(false);
+  const { submitHighscore } = useHighscores();
+
+  const canSubmitHighscore = sessionStrokeCount >= 999 && playerId && !scoreSubmitted && (reason === 'timeout' || reason === 'inactivity');
+
+  const handleEmojiSelect = (emoji: string) => {
+    if (selectedEmojis.includes(emoji)) {
+      setSelectedEmojis(prev => prev.filter(e => e !== emoji));
+    } else if (selectedEmojis.length < 3) {
+      setSelectedEmojis(prev => [...prev, emoji]);
+    }
+  };
+
+  const handleSubmitHighscore = async () => {
+    if (selectedEmojis.length !== 3 || !playerId) return;
+
+    setIsSubmittingScore(true);
+    const emojiId = selectedEmojis.join('');
+    const success = await submitHighscore(emojiId, sessionStrokeCount, playerId);
+    
+    if (success) {
+      setScoreSubmitted(true);
+      setShowEmojiPicker(false);
+    }
+    setIsSubmittingScore(false);
+  };
+
+  const handleRestart = () => {
+    setSelectedEmojis([]);
+    setShowEmojiPicker(false);
+    setScoreSubmitted(false);
+    onRestart();
+  };
   const getReasonInfo = () => {
     switch (reason) {
       case 'timeout':
@@ -56,6 +97,62 @@ const KickedOverlay = ({ reason, onRestart }: KickedOverlayProps) => {
           {message}
         </p>
         
+        {/* Session Stats Display */}
+        {sessionStrokeCount > 0 && (reason === 'timeout' || reason === 'inactivity') && (
+          <div className="bg-muted/20 rounded-lg p-4 mb-4">
+            <div className="text-lg font-semibold">Your Session Stats</div>
+            <div className="text-3xl font-bold text-primary">{sessionStrokeCount}</div>
+            <div className="text-sm text-muted-foreground">strokes painted</div>
+          </div>
+        )}
+        
+        {/* Highscore submission section */}
+        {canSubmitHighscore && !showEmojiPicker && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 border border-yellow-500/30 rounded-lg">
+            <div className="text-lg font-semibold mb-2">🏆 Congratulations!</div>
+            <p className="text-sm mb-3">You painted {sessionStrokeCount} strokes! Save your score to the leaderboard!</p>
+            <Button 
+              onClick={() => setShowEmojiPicker(true)}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+            >
+              🏆 Submit to Leaderboard
+            </Button>
+          </div>
+        )}
+
+        {scoreSubmitted && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/30 rounded-lg">
+            <div className="text-lg font-semibold mb-2">✅ Score Submitted!</div>
+            <p className="text-sm">Your score has been added to the leaderboard!</p>
+          </div>
+        )}
+
+        {showEmojiPicker && (
+          <div className="mb-6">
+            <EmojiPicker 
+              onEmojiSelect={handleEmojiSelect}
+              selectedEmojis={selectedEmojis}
+              maxEmojis={3}
+            />
+            <div className="mt-4 flex gap-2 justify-center">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowEmojiPicker(false)}
+                disabled={isSubmittingScore}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSubmitHighscore}
+                disabled={selectedEmojis.length !== 3 || isSubmittingScore}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              >
+                {isSubmittingScore ? 'Submitting...' : 'Submit Score'}
+              </Button>
+            </div>
+          </div>
+        )}
+        
         <div className="bg-muted/50 rounded-lg p-4 mb-6">
           <h3 className="font-semibold mb-2">Session Limits:</h3>
           <ul className="text-sm text-muted-foreground space-y-1">
@@ -67,7 +164,7 @@ const KickedOverlay = ({ reason, onRestart }: KickedOverlayProps) => {
 
         <div className="space-y-3">
           <Button
-            onClick={onRestart}
+            onClick={handleRestart}
             className="w-full bg-primary hover:bg-primary/90"
           >
             🎨 Start New Session

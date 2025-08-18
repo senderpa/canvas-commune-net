@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      highscores: {
+        Row: {
+          created_at: string
+          emoji_id: string
+          id: string
+          player_id: string
+          stroke_count: number
+        }
+        Insert: {
+          created_at?: string
+          emoji_id: string
+          id?: string
+          player_id: string
+          stroke_count: number
+        }
+        Update: {
+          created_at?: string
+          emoji_id?: string
+          id?: string
+          player_id?: string
+          stroke_count?: number
+        }
+        Relationships: []
+      }
       player_queue: {
         Row: {
           created_at: string | null
