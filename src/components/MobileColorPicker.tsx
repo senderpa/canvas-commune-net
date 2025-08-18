@@ -133,7 +133,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     const safeHue = Math.max(0, Math.min(360, isNaN(hue) ? 0 : hue));
     const safeValue = Math.max(0, Math.min(100, isNaN(value) ? 50 : value));
     
-    const size = 200;
+    const size = 160; // Smaller for mobile
     const center = size / 2;
     const radius = center - 4;
     
@@ -195,8 +195,8 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     
-    const x = clientX - rect.left - 100; // center offset
-    const y = clientY - rect.top - 100;
+    const x = clientX - rect.left - 80; // center offset for smaller wheel
+    const y = clientY - rect.top - 80;
     
     const distance = Math.sqrt(x * x + y * y);
     const angle = Math.atan2(y, x) * 180 / Math.PI;
@@ -237,10 +237,10 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-card/95 backdrop-blur-sm border border-border rounded-lg p-6 m-4 max-w-sm w-full">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Choose Color</h3>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
+      <div className="bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 w-full max-w-xs">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-base font-semibold">Choose Color</h3>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -248,18 +248,19 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
           </Button>
         </div>
 
-        {/* Color wheel */}
-        <div className="flex justify-center mb-4">
+        {/* Color wheel - smaller for mobile */}
+        <div className="flex justify-center mb-3">
           <canvas
             ref={wheelRef}
             className="cursor-pointer rounded-lg touch-none"
+            style={{ width: '160px', height: '160px' }}
             onMouseDown={handleWheelTouch}
             onTouchStart={handleWheelTouch}
           />
         </div>
 
         {/* Value slider */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-medium text-muted-foreground">Brightness:</span>
             <span className="text-sm font-mono w-8 ml-auto">{isNaN(value) ? 50 : Math.round(value)}</span>
@@ -274,7 +275,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
                 const newValue = Number(e.target.value);
                 if (!isNaN(newValue)) setValue(newValue);
               }}
-              className="w-full h-8 bg-gradient-to-r from-black via-gray-500 to-white rounded-lg appearance-none cursor-pointer slider-thumb"
+              className="w-full h-6 bg-gradient-to-r from-black via-gray-500 to-white rounded-lg appearance-none cursor-pointer slider-thumb"
               style={{
                 background: `linear-gradient(to right, 
                   hsl(${isNaN(hue) ? 0 : hue}, ${isNaN(saturation) ? 100 : saturation}%, 20%) 0%, 
@@ -286,13 +287,13 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
         </div>
 
         {/* Alpha slider */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-medium text-muted-foreground">Opacity:</span>
             <span className="text-sm font-mono w-8 ml-auto">{isNaN(alpha) ? 100 : Math.round(alpha * 100)}%</span>
           </div>
           <div className="relative">
-            <div className="w-full h-8 bg-gradient-to-r from-gray-200 via-white to-gray-200 rounded-lg"></div>
+            <div className="w-full h-6 bg-gradient-to-r from-gray-200 via-white to-gray-200 rounded-lg"></div>
             <input
               type="range"
               min="0.1"
@@ -303,7 +304,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
                 const newAlpha = Number(e.target.value);
                 if (!isNaN(newAlpha)) setAlpha(newAlpha);
               }}
-              className="absolute top-0 w-full h-8 rounded-lg appearance-none cursor-pointer slider-thumb bg-transparent"
+              className="absolute top-0 w-full h-6 rounded-lg appearance-none cursor-pointer slider-thumb bg-transparent"
               style={{
                 background: `linear-gradient(to right, 
                   ${hsvToHex(isNaN(hue) ? 0 : hue, isNaN(saturation) ? 100 : saturation, isNaN(value) ? 50 : value, 0.1)} 10%, 
@@ -315,18 +316,18 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
 
         {/* Current color preview */}
         <div
-          className="w-full h-12 rounded border border-border mb-4"
+          className="w-full h-8 rounded border border-border mb-3"
           style={{ backgroundColor: color }}
         />
 
         {/* Recent colors */}
         <div>
-          <div className="text-sm text-muted-foreground mb-2">Recent Colors:</div>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="text-xs text-muted-foreground mb-2">Recent Colors:</div>
+          <div className="grid grid-cols-5 gap-1">
             {recentColors.map((recentColor, index) => (
               <button
                 key={index}
-                className="w-12 h-12 rounded-lg border-2 border-border hover:scale-110 transition-transform"
+                className="w-8 h-8 rounded border-2 border-border hover:scale-110 transition-transform"
                 style={{ backgroundColor: recentColor }}
                 onClick={() => {
                   const { h, s, v } = hexToHsv(recentColor);
@@ -340,8 +341,8 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
           </div>
         </div>
 
-        <div className="mt-4">
-          <Button onClick={onClose} className="w-full">
+        <div className="mt-3">
+          <Button onClick={onClose} className="w-full" size="sm">
             Done
           </Button>
         </div>
