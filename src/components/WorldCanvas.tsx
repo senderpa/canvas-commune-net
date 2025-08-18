@@ -33,17 +33,20 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     
-    const edgeThreshold = 50; // Pixels from edge to start panning
+    const edgeThreshold = 120; // Increased for mobile - pixels from edge to start panning
     const panSpeed = 3;
     
     let deltaX = 0;
     let deltaY = 0;
     
-    // Check edges and calculate pan direction
+    // Check edges and calculate pan direction - use actual canvas width/height
+    const canvasWidth = rect.width;
+    const canvasHeight = rect.height;
+    
     if (x < edgeThreshold) deltaX = -panSpeed; // Left edge
-    if (x > 512 - edgeThreshold) deltaX = panSpeed; // Right edge
+    if (x > canvasWidth - edgeThreshold) deltaX = panSpeed; // Right edge
     if (y < edgeThreshold) deltaY = -panSpeed; // Top edge
-    if (y > 512 - edgeThreshold) deltaY = panSpeed; // Bottom edge
+    if (y > canvasHeight - edgeThreshold) deltaY = panSpeed; // Bottom edge
     
     if (deltaX !== 0 || deltaY !== 0) {
       onMove(deltaX, deltaY);
@@ -245,8 +248,9 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
   }, [onStroke, paintState]);
 
   return (
-    <div className="relative">
-      {/* Edge indicators */}
+    <div className="flex items-center justify-center min-h-screen w-full p-4">
+      <div className="relative">
+        {/* Edge indicators */}
         <EdgeIndicators
           worldX={paintState.x}
           worldY={paintState.y}
@@ -254,20 +258,25 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
           viewportSize={512}
         />
 
-      {/* Main canvas */}
-      <canvas
-        ref={canvasRef}
-        className="border-2 border-border rounded-lg shadow-2xl cursor-crosshair"
-        style={{ width: '512px', height: '512px' }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-      />
+        {/* Main canvas - responsive and centered */}
+        <canvas
+          ref={canvasRef}
+          className="border-2 border-border rounded-lg shadow-2xl cursor-crosshair max-w-full max-h-[70vh] w-auto h-auto"
+          style={{ 
+            aspectRatio: '1 / 1',
+            maxWidth: 'min(512px, calc(100vw - 2rem), calc(100vh - 200px))',
+            maxHeight: 'min(512px, calc(100vw - 2rem), calc(100vh - 200px))'
+          }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        />
 
-      {/* Coordinates display */}
-      <div className="absolute -bottom-8 left-0 text-xs text-muted-foreground">
-        World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
+        {/* Coordinates display */}
+        <div className="absolute -bottom-8 left-0 text-xs text-muted-foreground">
+          World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
+        </div>
       </div>
     </div>
   );

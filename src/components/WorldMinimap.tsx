@@ -36,13 +36,21 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
   const worldSize = 10000;
   const minimapSize = 600;
 
-  // Blinking animation for player position
+  // Blinking animation for player position - higher frequency when actively painting
+  const [isActivelyPainting, setIsActivelyPainting] = useState(false);
+  
   useEffect(() => {
+    // Check if player moved recently (indicating active painting)
+    const now = Date.now();
+    const timeSinceLastStroke = now - (strokes[strokes.length - 1]?.timestamp || 0);
+    setIsActivelyPainting(timeSinceLastStroke < 3000); // Active if stroked within last 3 seconds
+    
+    const blinkSpeed = isActivelyPainting ? 200 : 600; // Faster blink when painting
     const interval = setInterval(() => {
       setIsBlinking(prev => !prev);
-    }, 500);
+    }, blinkSpeed);
     return () => clearInterval(interval);
-  }, []);
+  }, [strokes, isActivelyPainting]);
 
   // Draw a single stroke on the minimap
   const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke) => {
@@ -142,31 +150,40 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
     // Draw all strokes
     strokes.forEach(stroke => drawStroke(ctx, stroke));
 
-    // Draw other players
-    otherPlayers.forEach(player => {
+    // Draw other players with random colors
+    otherPlayers.forEach((player, index) => {
       const playerX = ((player.position_x - panX) * zoom) + minimapSize / 2;
       const playerY = ((player.position_y - panY) * zoom) + minimapSize / 2;
       
       // Only draw if within canvas bounds (with some buffer)
       if (playerX >= -20 && playerX <= minimapSize + 20 && playerY >= -20 && playerY <= minimapSize + 20) {
-        // Draw player dot
+        // Generate consistent random color for each player based on their ID
+        const colors = [
+          '#ff4757', '#2ed573', '#3742fa', '#ff6348', '#7bed9f', 
+          '#70a1ff', '#5352ed', '#ff3838', '#2f3542', '#f1c40f',
+          '#9c88ff', '#ffa726', '#26de81', '#45aaf2', '#fd79a8',
+          '#00cec9', '#6c5ce7', '#a29bfe', '#fab1a0', '#00b894'
+        ];
+        const playerColor = colors[player.player_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % colors.length];
+        
+        // Draw player dot with random color
         ctx.beginPath();
-        ctx.arc(playerX, playerY, Math.max(2, 4 * zoom), 0, 2 * Math.PI);
-        ctx.fillStyle = player.current_color || '#888888';
+        ctx.arc(playerX, playerY, Math.max(3, 5 * zoom), 0, 2 * Math.PI);
+        ctx.fillStyle = playerColor;
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = Math.max(0.5, 1 * zoom);
+        ctx.lineWidth = Math.max(0.5, 2 * zoom);
         ctx.stroke();
         
         // Draw small tool indicator
-        if (zoom > 0.5) {
+        if (zoom > 0.3) {
           ctx.fillStyle = '#000000';
           ctx.font = `${Math.max(8, 12 * zoom)}px Arial`;
           ctx.textAlign = 'center';
           ctx.fillText(
             player.current_tool === 'eraser' ? '🧹' : '🖌️', 
             playerX, 
-            playerY - Math.max(8, 12 * zoom)
+            playerY - Math.max(10, 15 * zoom)
           );
         }
       }

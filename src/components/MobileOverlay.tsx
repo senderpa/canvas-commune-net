@@ -80,40 +80,41 @@ const MobileOverlay = ({
         </div>
       </div>
 
-      {/* Size slider - horizontal */}
+      {/* Color and Size controls on same row */}
       <div className="absolute top-16 left-4 right-4 z-20">
         <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">Size:</span>
-            <input
-              type="range"
-              min="1"
-              max="50"
-              value={paintState.size}
-              onChange={(e) => onSizeChange(Number(e.target.value))}
-              className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+          <div className="flex items-center gap-4">
+            {/* Color picker button */}
+            <button
+              onClick={() => setIsColorPickerOpen(true)}
+              className="w-12 h-12 rounded-lg border-2 border-border shadow-lg hover:scale-110 transition-transform flex-shrink-0"
+              style={{ backgroundColor: paintState.color }}
             />
-            <span className="text-xs font-mono w-6 text-center">{paintState.size}</span>
-            <div
-              className="rounded-full border border-border"
-              style={{
-                width: `${Math.max(4, paintState.size)}px`,
-                height: `${Math.max(4, paintState.size)}px`,
-                backgroundColor: paintState.tool === 'eraser' ? 'transparent' : paintState.color,
-                borderStyle: paintState.tool === 'eraser' ? 'dashed' : 'solid'
-              }}
-            />
+            
+            {/* Size slider */}
+            <div className="flex items-center gap-3 flex-1">
+              <span className="text-xs text-muted-foreground">Size:</span>
+              <input
+                type="range"
+                min="1"
+                max="50"
+                value={paintState.size}
+                onChange={(e) => onSizeChange(Number(e.target.value))}
+                className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+              />
+              <span className="text-xs font-mono w-6 text-center">{paintState.size}</span>
+              <div
+                className="rounded-full border border-border flex-shrink-0"
+                style={{
+                  width: `${Math.max(4, paintState.size)}px`,
+                  height: `${Math.max(4, paintState.size)}px`,
+                  backgroundColor: paintState.tool === 'eraser' ? 'transparent' : paintState.color,
+                  borderStyle: paintState.tool === 'eraser' ? 'dashed' : 'solid'
+                }}
+              />
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Color picker button */}
-      <div className="absolute top-32 left-4 z-20">
-        <button
-          onClick={() => setIsColorPickerOpen(true)}
-          className="w-12 h-12 rounded-lg border-2 border-border shadow-lg hover:scale-110 transition-transform"
-          style={{ backgroundColor: paintState.color }}
-        />
       </div>
 
       {/* Player Stats - Bottom Left */}
