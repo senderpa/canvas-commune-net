@@ -211,8 +211,8 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-      <div className="bg-card border border-border rounded-xl p-6 max-w-4xl w-full mx-4 max-h-[95vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in">
+      <div className="bg-card border border-border rounded-xl p-6 max-w-4xl w-full mx-4 max-h-[95vh] overflow-hidden animate-slide-in-right">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-blue-700 bg-clip-text text-transparent">
             🎬 World Timelapse
