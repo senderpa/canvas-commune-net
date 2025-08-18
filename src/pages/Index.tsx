@@ -220,14 +220,6 @@ const Index = () => {
             
             <LivePreview playerCount={sessionState.playerCount} />
             
-            {/* Timelapse Button */}
-            <button
-              onClick={() => setIsTimeLapseOpen(true)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 animate-pulse hover:animate-none mb-4"
-            >
-              🎬 World Timelapse
-            </button>
-            
             <button
               onClick={async () => {
                 const success = await joinSession();
@@ -236,9 +228,17 @@ const Index = () => {
                 }
               }}
               disabled={!sessionState.canJoin}
-              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
+              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-3"
             >
               {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
+            </button>
+            
+            {/* Timelapse Button - smaller and under start button */}
+            <button
+              onClick={() => setIsTimeLapseOpen(true)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-1 px-2 rounded transition-all duration-300 animate-pulse hover:animate-none"
+            >
+              🎬 World Timelapse
             </button>
           </div>
         </div>
