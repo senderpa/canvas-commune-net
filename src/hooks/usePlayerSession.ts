@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseReady } from '@/lib/supabase-client';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface PlayerSession {
   id: string;
@@ -9,6 +9,9 @@ export interface PlayerSession {
   is_active: boolean;
   position_x: number;
   position_y: number;
+  current_color?: string;
+  current_tool?: string;
+  current_size?: number;
 }
 
 export interface SessionState {
@@ -42,21 +45,6 @@ export const usePlayerSession = () => {
 
   // Join session
   const joinSession = useCallback(async () => {
-    // If Supabase is not available, use mock mode with single player
-    if (!isSupabaseReady || !supabase) {
-      console.log('Using mock session - Supabase not configured');
-      setSessionState(prev => ({
-        ...prev,
-        isConnected: true,
-        canJoin: true,
-        playerId,
-        isKicked: false,
-        kickReason: null,
-        playerCount: 1, // Show only current player in mock mode
-      }));
-      return true;
-    }
-
     try {
       // Check current player count
       const { data: sessions, error: countError } = await supabase
@@ -87,6 +75,9 @@ export const usePlayerSession = () => {
           is_active: true,
           position_x: Math.floor(Math.random() * 10000),
           position_y: Math.floor(Math.random() * 10000),
+          current_color: '#000000',
+          current_tool: 'brush',
+          current_size: 5,
         });
 
       if (insertError) {
@@ -112,16 +103,6 @@ export const usePlayerSession = () => {
 
   // Leave session
   const leaveSession = useCallback(async () => {
-    if (!isSupabaseReady || !supabase) {
-      setSessionState(prev => ({
-        ...prev,
-        isConnected: false,
-        canJoin: false,
-        playerId: null,
-      }));
-      return;
-    }
-
     try {
       await supabase
         .from('player_sessions')
@@ -141,7 +122,7 @@ export const usePlayerSession = () => {
 
   // Update activity
   const updateActivity = useCallback(async () => {
-    if (!sessionState.isConnected || !isSupabaseReady || !supabase) return;
+    if (!sessionState.isConnected) return;
 
     try {
       await supabase
@@ -155,7 +136,7 @@ export const usePlayerSession = () => {
 
   // Update position
   const updatePosition = useCallback(async (x: number, y: number) => {
-    if (!sessionState.isConnected || !isSupabaseReady || !supabase) return;
+    if (!sessionState.isConnected) return;
 
     try {
       await supabase
@@ -171,40 +152,46 @@ export const usePlayerSession = () => {
     }
   }, [playerId, sessionState.isConnected]);
 
+  // Update paint state (color, tool, size)
+  const updatePaintState = useCallback(async (color?: string, tool?: string, size?: number) => {
+    if (!sessionState.isConnected) return;
+
+    try {
+      const updates: any = { last_activity: new Date().toISOString() };
+      if (color !== undefined) updates.current_color = color;
+      if (tool !== undefined) updates.current_tool = tool;
+      if (size !== undefined) updates.current_size = size;
+
+      await supabase
+        .from('player_sessions')
+        .update(updates)
+        .eq('player_id', playerId);
+    } catch (error) {
+      console.error('Paint state update error:', error);
+    }
+  }, [playerId, sessionState.isConnected]);
+
   // Set up real-time subscriptions and cleanup
   useEffect(() => {
     let activityInterval: NodeJS.Timeout;
     let cleanupInterval: NodeJS.Timeout;
     let subscription: any = null;
 
-    // Subscribe to player sessions changes (only if Supabase is available)
-    if (isSupabaseReady && supabase) {
-      subscription = supabase
-        .channel('player_sessions')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'player_sessions' },
-          (payload) => {
-            // Refresh player count
-            refreshPlayerCount();
-          }
-        )
-        .subscribe();
-    }
+    // Subscribe to player sessions changes
+    subscription = supabase
+      .channel('player_sessions')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'player_sessions' },
+        (payload) => {
+          // Refresh player count
+          refreshPlayerCount();
+        }
+      )
+      .subscribe();
 
     // Refresh player count
     const refreshPlayerCount = async () => {
-      if (!isSupabaseReady || !supabase) {
-        // Mock single player mode
-        setSessionState(prev => ({
-          ...prev,
-          playerCount: sessionState.isConnected ? 1 : 0,
-          canJoin: true,
-          queuePosition: 0,
-        }));
-        return;
-      }
-
       try {
         const { data: sessions, error } = await supabase
           .from('player_sessions')
@@ -235,17 +222,9 @@ export const usePlayerSession = () => {
 
     // Set up cleanup interval
     cleanupInterval = setInterval(async () => {
-      if (!isSupabaseReady || !supabase) return; // Skip cleanup if Supabase not available
-      
       try {
-        // Clean up old sessions
-        const tenMinutesAgo = new Date(Date.now() - SESSION_TIMEOUT).toISOString();
-        const oneMinuteAgo = new Date(Date.now() - INACTIVITY_TIMEOUT).toISOString();
-
-        await supabase
-          .from('player_sessions')
-          .delete()
-          .or(`session_start.lt.${tenMinutesAgo},last_activity.lt.${oneMinuteAgo}`);
+        // Use the cleanup function from the database
+        await supabase.rpc('cleanup_inactive_sessions');
 
         // Check if current player was kicked
         if (sessionState.isConnected) {
@@ -271,7 +250,7 @@ export const usePlayerSession = () => {
       } catch (error) {
         console.error('Cleanup error:', error);
       }
-    }, 10000); // Every 10 seconds
+    }, 30000); // Every 30 seconds
 
     return () => {
       if (subscription) subscription.unsubscribe();
@@ -295,6 +274,7 @@ export const usePlayerSession = () => {
     leaveSession,
     updateActivity,
     updatePosition,
+    updatePaintState,
     resetKick: () => setSessionState(prev => ({ ...prev, isKicked: false, kickReason: null })),
   };
 };

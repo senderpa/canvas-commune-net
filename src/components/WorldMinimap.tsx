@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useOtherPlayers } from '@/hooks/useOtherPlayers';
 
 interface Stroke {
   id: string;
@@ -14,10 +15,11 @@ interface WorldMinimapProps {
   worldX: number;
   worldY: number;
   strokes: Stroke[];
+  currentPlayerId?: string;
   onClose: () => void;
 }
 
-const WorldMinimap = ({ worldX, worldY, strokes, onClose }: WorldMinimapProps) => {
+const WorldMinimap = ({ worldX, worldY, strokes, currentPlayerId, onClose }: WorldMinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(0.15); // Start zoomed out to show full world
   const [panX, setPanX] = useState(5000); // Center of world (10000/2)
@@ -25,6 +27,9 @@ const WorldMinimap = ({ worldX, worldY, strokes, onClose }: WorldMinimapProps) =
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [isBlinking, setIsBlinking] = useState(true);
+  
+  // Get other players' positions
+  const { otherPlayers } = useOtherPlayers(currentPlayerId);
 
   const worldSize = 10000;
   const minimapSize = 600;
@@ -135,7 +140,37 @@ const WorldMinimap = ({ worldX, worldY, strokes, onClose }: WorldMinimapProps) =
     // Draw all strokes
     strokes.forEach(stroke => drawStroke(ctx, stroke));
 
-    // Draw player position with blinking dot - always visible
+    // Draw other players
+    otherPlayers.forEach(player => {
+      const playerX = ((player.position_x - panX) * zoom) + minimapSize / 2;
+      const playerY = ((player.position_y - panY) * zoom) + minimapSize / 2;
+      
+      // Only draw if within canvas bounds (with some buffer)
+      if (playerX >= -20 && playerX <= minimapSize + 20 && playerY >= -20 && playerY <= minimapSize + 20) {
+        // Draw player dot
+        ctx.beginPath();
+        ctx.arc(playerX, playerY, Math.max(2, 4 * zoom), 0, 2 * Math.PI);
+        ctx.fillStyle = player.current_color || '#888888';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(0.5, 1 * zoom);
+        ctx.stroke();
+        
+        // Draw small tool indicator
+        if (zoom > 0.5) {
+          ctx.fillStyle = '#000000';
+          ctx.font = `${Math.max(8, 12 * zoom)}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.fillText(
+            player.current_tool === 'eraser' ? '🧹' : '🖌️', 
+            playerX, 
+            playerY - Math.max(8, 12 * zoom)
+          );
+        }
+      }
+    });
+
+    // Draw current player position with blinking dot - always visible
     const playerCanvasX = ((worldX - panX) * zoom) + minimapSize / 2;
     const playerCanvasY = ((worldY - panY) * zoom) + minimapSize / 2;
 
@@ -147,7 +182,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, onClose }: WorldMinimapProps) =
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = Math.max(1, 2 * zoom);
     ctx.stroke();
-  }, [strokes, worldX, worldY, drawStroke, zoom, panX, panY, minimapSize, isBlinking]);
+  }, [strokes, worldX, worldY, drawStroke, zoom, panX, panY, minimapSize, isBlinking, otherPlayers]);
 
   // Update canvas when anything changes
   useEffect(() => {

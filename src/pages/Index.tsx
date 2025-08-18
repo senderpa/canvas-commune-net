@@ -11,6 +11,7 @@ import QueueOverlay from '@/components/QueueOverlay';
 import KickedOverlay from '@/components/KickedOverlay';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
+import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
 
 export type Tool = 'brush' | 'eraser';
 
@@ -24,7 +25,8 @@ export interface PaintState {
 
 const Index = () => {
   const isMobile = useIsMobile();
-  const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, resetKick } = usePlayerSession();
+  const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, updatePaintState, resetKick } = usePlayerSession();
+  const { strokes, isLoading: strokesLoading, addStroke } = useRealTimeStrokes();
   
   // Generate random starting position and color
   const [initialPosition] = useState(() => ({
@@ -50,62 +52,22 @@ const Index = () => {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
-  
-  // Don't reset - keep all strokes persistent
-  useEffect(() => {
-    // Load existing strokes from localStorage on startup
-    try {
-      const savedStrokes = localStorage.getItem('multipainter-strokes');
-      const savedStrokeCount = localStorage.getItem('multipainter-stroke-count');
-      
-      if (savedStrokes) {
-        const parsedStrokes = JSON.parse(savedStrokes);
-        setStrokes(parsedStrokes);
-        setStrokeCount(parsedStrokes.length);
-      }
-      
-      if (savedStrokeCount) {
-        setStrokeCount(parseInt(savedStrokeCount));
-      }
-    } catch (error) {
-      console.error('Failed to load strokes from localStorage:', error);
-    }
-  }, []);
-  
-  // Load strokes from localStorage on startup (now empty)
-  const [strokes, setStrokes] = useState<Array<{
-    id: string;
-    points: { x: number; y: number }[];
-    color: string;
-    size: number;
-    tool: 'brush' | 'eraser';
-    timestamp: number;
-  }>>([]);
-  
   const [targetPosition, setTargetPosition] = useState(initialPosition);
-  const [strokeCount, setStrokeCount] = useState(0);
-
-  // Save strokes to localStorage whenever strokes change
-  useEffect(() => {
-    try {
-      localStorage.setItem('multipainter-strokes', JSON.stringify(strokes));
-      localStorage.setItem('multipainter-stroke-count', strokeCount.toString());
-    } catch (error) {
-      console.error('Failed to save strokes to localStorage:', error);
-    }
-  }, [strokes, strokeCount]);
   
   const handleColorChange = useCallback((color: string) => {
     setPaintState(prev => ({ ...prev, color }));
-  }, []);
+    updatePaintState(color, undefined, undefined);
+  }, [updatePaintState]);
   
   const handleToolChange = useCallback((tool: Tool) => {
     setPaintState(prev => ({ ...prev, tool }));
-  }, []);
+    updatePaintState(undefined, tool, undefined);
+  }, [updatePaintState]);
   
   const handleSizeChange = useCallback((size: number) => {
     setPaintState(prev => ({ ...prev, size }));
-  }, []);
+    updatePaintState(undefined, undefined, size);
+  }, [updatePaintState]);
   
   const handleMove = useCallback((deltaX: number, deltaY: number) => {
     setTargetPosition(prev => {
@@ -121,71 +83,36 @@ const Index = () => {
     });
   }, [updatePosition]);
 
-  const handleStroke = useCallback((stroke: Omit<{
-    id: string;
+  const handleStroke = useCallback(async (stroke: {
     points: { x: number; y: number }[];
     color: string;
     size: number;
     tool: 'brush' | 'eraser';
-    timestamp: number;
-  }, 'id' | 'timestamp'>) => {
+  }) => {
     // Ensure all stroke points are within world bounds
     const validPoints = stroke.points.filter(point => 
       point.x >= 0 && point.x < 10000 && point.y >= 0 && point.y < 10000
     );
     
-    if (validPoints.length > 0) {
-      const newStroke = {
-        ...stroke,
-        points: validPoints,
-        id: Math.random().toString(36).substr(2, 9),
-        timestamp: Date.now()
-      };
+    if (validPoints.length > 0 && sessionState.playerId) {
+      // Calculate world position for the stroke (center point)
+      const avgX = validPoints.reduce((sum, p) => sum + p.x, 0) / validPoints.length;
+      const avgY = validPoints.reduce((sum, p) => sum + p.y, 0) / validPoints.length;
       
-      setStrokes(prev => [...prev, newStroke]);
-      setStrokeCount(prev => prev + 1);
+      await addStroke({
+        player_id: sessionState.playerId,
+        points: validPoints,
+        color: stroke.color,
+        size: stroke.size,
+        tool: stroke.tool,
+        world_x: Math.floor(avgX),
+        world_y: Math.floor(avgY)
+      });
       
       // Update activity when painting
       updateActivity();
     }
-  }, [updateActivity]);
-
-  // Simulate other players' strokes every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Add a random stroke from another "player"
-      const colors = ['#ff3366', '#33ff66', '#3366ff', '#ffff33', '#ff33ff', '#33ffff'];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      
-      // Random position in world
-      const startX = Math.random() * 10000;
-      const startY = Math.random() * 10000;
-      
-      // Create a random stroke with multiple points
-      const points = [];
-      const numPoints = 5 + Math.floor(Math.random() * 15);
-      
-      for (let i = 0; i < numPoints; i++) {
-        points.push({
-          x: startX + (Math.random() - 0.5) * 100,
-          y: startY + (Math.random() - 0.5) * 100
-        });
-      }
-      
-      const newStroke = {
-        id: 'bot-' + Math.random().toString(36).substr(2, 9),
-        points: points,
-        color: randomColor,
-        size: 2 + Math.floor(Math.random() * 8),
-        tool: 'brush' as const,
-        timestamp: Date.now()
-      };
-      
-      setStrokes(prev => [...prev, newStroke]);
-    }, 30000); // Every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [addStroke, updateActivity, sessionState.playerId]);
 
   // Smooth lerp movement
   useEffect(() => {
@@ -218,6 +145,16 @@ const Index = () => {
       }
     };
   }, [targetPosition]);
+
+  // Convert real-time strokes to canvas format
+  const canvasStrokes = strokes.map(stroke => ({
+    id: stroke.id,
+    points: stroke.points,
+    color: stroke.color,
+    size: stroke.size,
+    tool: stroke.tool,
+    timestamp: new Date(stroke.created_at).getTime()
+  }));
 
   return (
     <div 
@@ -259,7 +196,7 @@ const Index = () => {
                 ✨ Use transparency and various brush sizes
               </div>
               <div className="text-sm text-muted-foreground">
-                ⏰ 10 minute sessions with 1 minute activity timeout
+                ⏰ 30 minute sessions with 5 minute activity timeout
               </div>
             </div>
             <button
@@ -302,87 +239,87 @@ const Index = () => {
         <>
           {/* Main canvas area - always centered */}
           <div className="absolute inset-0 flex items-center justify-center">
-        <WorldCanvas 
-          paintState={paintState}
-          strokes={strokes}
-          onMove={handleMove}
-          onStroke={handleStroke}
-        />
-      </div>
-
-      {/* Desktop UI */}
-      {!isMobile && (
-        <>
-          {/* Color picker - left side */}
-          <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10">
-            <ColorPicker 
-              color={paintState.color}
-              onColorChange={handleColorChange}
-              size={paintState.size}
-              onSizeChange={handleSizeChange}
-              tool={paintState.tool}
+            <WorldCanvas 
+              paintState={paintState}
+              strokes={canvasStrokes}
+              onMove={handleMove}
+              onStroke={handleStroke}
             />
           </div>
 
-          {/* Toolbar - top */}
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
-            <ToolBar
+          {/* Desktop UI */}
+          {!isMobile && (
+            <>
+              {/* Color picker - left side */}
+              <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10">
+                <ColorPicker 
+                  color={paintState.color}
+                  onColorChange={handleColorChange}
+                  size={paintState.size}
+                  onSizeChange={handleSizeChange}
+                  tool={paintState.tool}
+                />
+              </div>
+
+              {/* Toolbar - top */}
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
+                <ToolBar
+                  paintState={paintState}
+                  setPaintState={setPaintState}
+                  onInfoOpen={() => setIsInfoOpen(true)}
+                  onPlayOpen={() => setIsPlayOpen(true)}
+                  onMapOpen={() => setIsMapOpen(true)}
+                  strokeCount={strokes.length}
+                />
+              </div>
+
+              {/* Player stats - bottom left */}
+              <div className="absolute bottom-6 left-6 z-10">
+                <PlayerStats 
+                  strokeCount={strokes.length} 
+                  playerCount={sessionState.playerCount}
+                  isConnected={sessionState.isConnected}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Mobile UI */}
+          {isMobile && (
+            <MobileOverlay
               paintState={paintState}
-              setPaintState={setPaintState}
+              onColorChange={handleColorChange}
+              onToolChange={handleToolChange}
+              onSizeChange={handleSizeChange}
+              onMove={handleMove}
               onInfoOpen={() => setIsInfoOpen(true)}
               onPlayOpen={() => setIsPlayOpen(true)}
               onMapOpen={() => setIsMapOpen(true)}
               strokeCount={strokes.length}
-            />
-          </div>
-
-          {/* Player stats - bottom left */}
-          <div className="absolute bottom-6 left-6 z-10">
-            <PlayerStats 
-              strokeCount={strokeCount} 
               playerCount={sessionState.playerCount}
               isConnected={sessionState.isConnected}
             />
-          </div>
-        </>
-      )}
+          )}
 
-      {/* Mobile UI */}
-      {isMobile && (
-        <MobileOverlay
-          paintState={paintState}
-          onColorChange={handleColorChange}
-          onToolChange={handleToolChange}
-          onSizeChange={handleSizeChange}
-          onMove={handleMove}
-          onInfoOpen={() => setIsInfoOpen(true)}
-          onPlayOpen={() => setIsPlayOpen(true)}
-          onMapOpen={() => setIsMapOpen(true)}
-          strokeCount={strokeCount}
-          playerCount={sessionState.playerCount}
-          isConnected={sessionState.isConnected}
-        />
-      )}
+          {/* Dialogs & Overlays */}
+          <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />
+          
+          <AnimationReplay 
+            strokes={canvasStrokes}
+            isOpen={isPlayOpen}
+            onClose={() => setIsPlayOpen(false)}
+          />
 
-
-      {/* Dialogs & Overlays */}
-      <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />
-      
-      <AnimationReplay 
-        strokes={strokes}
-        isOpen={isPlayOpen}
-        onClose={() => setIsPlayOpen(false)}
-      />
-
-      {/* World Map Overlay */}
-      {isMapOpen && (
-        <WorldMinimap
-          worldX={paintState.x}
-          worldY={paintState.y}
-          strokes={strokes}
-          onClose={() => setIsMapOpen(false)}
-        />
-      )}
+          {/* World Map Overlay */}
+          {isMapOpen && (
+            <WorldMinimap
+              worldX={paintState.x}
+              worldY={paintState.y}
+              strokes={canvasStrokes}
+              currentPlayerId={sessionState.playerId || undefined}
+              onClose={() => setIsMapOpen(false)}
+            />
+          )}
         </>
       )}
     </div>
