@@ -17,6 +17,7 @@ export interface PlayerSession {
 export interface SessionState {
   isConnected: boolean;
   playerCount: number;
+  queueCount: number;
   canJoin: boolean;
   queuePosition: number;
   isKicked: boolean;
@@ -32,6 +33,7 @@ export const usePlayerSession = () => {
   const [sessionState, setSessionState] = useState<SessionState>({
     isConnected: false,
     playerCount: 0,
+    queueCount: 0,
     canJoin: false,
     queuePosition: 0,
     isKicked: false,
