@@ -273,7 +273,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       <EdgeIndicators
         worldX={paintState.x}
         worldY={paintState.y}
-        worldSize={1000000}
+        worldSize={1000}
         viewportSize={512}
       />
 

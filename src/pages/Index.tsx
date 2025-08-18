@@ -24,8 +24,8 @@ const Index = () => {
   
   // Generate random starting position and color
   const [initialPosition] = useState(() => ({
-    x: Math.floor(Math.random() * (1000000 - 512)),
-    y: Math.floor(Math.random() * (1000000 - 512))
+    x: Math.floor(Math.random() * (1000 - 512)),
+    y: Math.floor(Math.random() * (1000 - 512))
   }));
   
   // Generate new random color on each page load
@@ -104,8 +104,8 @@ const Index = () => {
   
   const handleMove = useCallback((deltaX: number, deltaY: number) => {
     setTargetPosition(prev => ({
-      x: Math.max(0, Math.min(1000000 - 512, prev.x + deltaX)),
-      y: Math.max(0, Math.min(1000000 - 512, prev.y + deltaY))
+      x: Math.max(0, Math.min(1000 - 512, prev.x + deltaX)),
+      y: Math.max(0, Math.min(1000 - 512, prev.y + deltaY))
     }));
   }, []);
 
@@ -119,7 +119,7 @@ const Index = () => {
   }, 'id' | 'timestamp'>) => {
     // Ensure all stroke points are within world bounds
     const validPoints = stroke.points.filter(point => 
-      point.x >= 0 && point.x < 1000000 && point.y >= 0 && point.y < 1000000
+      point.x >= 0 && point.x < 1000 && point.y >= 0 && point.y < 1000
     );
     
     if (validPoints.length > 0) {
@@ -143,8 +143,8 @@ const Index = () => {
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
       
       // Random position in world
-      const startX = Math.random() * 1000000;
-      const startY = Math.random() * 1000000;
+      const startX = Math.random() * 1000;
+      const startY = Math.random() * 1000;
       
       // Create a random stroke with multiple points
       const points = [];

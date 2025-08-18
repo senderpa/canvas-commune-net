@@ -21,13 +21,13 @@ interface WorldMinimapProps {
 const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }: WorldMinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(500000); // Center of world
-  const [panY, setPanY] = useState(500000); // Center of world
+  const [panX, setPanX] = useState(500); // Center of world
+  const [panY, setPanY] = useState(500); // Center of world
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [isBlinking, setIsBlinking] = useState(true);
 
-  const worldSize = 1000000;
+  const worldSize = 1000;
   const minimapSize = isExpanded ? 600 : 150;
 
   // Blinking animation for player position
@@ -57,7 +57,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
     if (!isVisible) return;
 
     ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
-    ctx.lineWidth = Math.max(0.1, stroke.size * zoom * (isExpanded ? 0.5 : 0.1));
+    ctx.lineWidth = Math.max(0.1, stroke.size * zoom * (isExpanded ? 2 : 0.5));
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -65,7 +65,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
       // Single point
       const point = canvasPoints[0];
       ctx.beginPath();
-      ctx.arc(point.x, point.y, Math.max(0.1, stroke.size * zoom * (isExpanded ? 0.25 : 0.05)), 0, 2 * Math.PI);
+      ctx.arc(point.x, point.y, Math.max(0.1, stroke.size * zoom * (isExpanded ? 1 : 0.25)), 0, 2 * Math.PI);
       ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
       ctx.fill();
     } else {
@@ -92,7 +92,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
     ctx.fillRect(0, 0, minimapSize, minimapSize);
 
     // Draw world boundary if zoomed out enough
-    if (zoom < 0.01) {
+    if (zoom < 0.5) {
       const boundaryX = ((0 - panX) * zoom) + minimapSize / 2;
       const boundaryY = ((0 - panY) * zoom) + minimapSize / 2;
       const boundaryWidth = worldSize * zoom;
@@ -104,11 +104,11 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
     }
 
     // Draw grid if zoomed in enough
-    if (zoom > 0.001) {
+    if (zoom > 0.1) {
       ctx.strokeStyle = '#eeeeee';
       ctx.lineWidth = 0.5;
       
-      const gridSpacing = Math.max(50000, 100000 / zoom);
+      const gridSpacing = Math.max(50, 100 / zoom);
       const startX = Math.floor(panX / gridSpacing) * gridSpacing;
       const startY = Math.floor(panY / gridSpacing) * gridSpacing;
       
@@ -199,7 +199,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
     const worldMouseY = panY + (mouseY - minimapSize / 2) / zoom;
     
     const zoomFactor = e.deltaY > 0 ? 0.8 : 1.25;
-    const newZoom = Math.max(0.0001, Math.min(10, zoom * zoomFactor));
+    const newZoom = Math.max(0.1, Math.min(10, zoom * zoomFactor));
     
     setPanX(worldMouseX - (mouseX - minimapSize / 2) / newZoom);
     setPanY(worldMouseY - (mouseY - minimapSize / 2) / newZoom);
@@ -217,7 +217,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setZoom(0.0015);
+                  setZoom(0.15);
                   setPanX(worldSize / 2);
                   setPanY(worldSize / 2);
                 }}
@@ -230,7 +230,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
                 onClick={() => {
                   setPanX(worldX);
                   setPanY(worldY);
-                  setZoom(0.1);
+                  setZoom(2);
                 }}
               >
                 Go to Me
@@ -262,7 +262,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, isExpanded, onToggleExpanded }:
           {isExpanded && (
             <>
               <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
-                Scale: {zoom < 0.001 ? `1:${Math.round(1/zoom)}` : `${Math.round(zoom * 1000)}:1000`}
+                Scale: {zoom < 1 ? `1:${Math.round(1/zoom)}` : `${Math.round(zoom)}:1`}
               </div>
               <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
                 Center: ({Math.round(panX)}, {Math.round(panY)})

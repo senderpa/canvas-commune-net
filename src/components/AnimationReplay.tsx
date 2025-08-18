@@ -21,14 +21,14 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
   const [currentStrokeIndex, setCurrentStrokeIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(500000); // Center of 1M world
-  const [panY, setPanY] = useState(500000); // Center of 1M world
+  const [zoom, setZoom] = useState(0.8); // Start zoomed out to see more
+  const [panX, setPanX] = useState(500); // Center of 1K world
+  const [panY, setPanY] = useState(500); // Center of 1K world
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
 
   const canvasSize = 800; // Larger canvas for better visibility
-  const worldSize = 1000000;
+  const worldSize = 1000;
 
   // Sort strokes by timestamp
   const sortedStrokes = [...strokes].sort((a, b) => a.timestamp - b.timestamp);
@@ -180,7 +180,7 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
     const worldY = panY + (mouseY - canvasSize / 2) / zoom;
     
     const zoomFactor = e.deltaY > 0 ? 0.8 : 1.25;
-    const newZoom = Math.max(0.001, Math.min(512 / 1000000 * canvasSize, zoom * zoomFactor));
+    const newZoom = Math.max(0.1, Math.min(20, zoom * zoomFactor));
     
     // Keep the mouse position fixed during zoom
     setPanX(worldX - (mouseX - canvasSize / 2) / newZoom);
@@ -249,14 +249,14 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setZoom(prev => Math.min(512 / 1000000 * canvasSize, prev * 2))}
+                onClick={() => setZoom(prev => Math.min(20, prev * 2))}
               >
                 Zoom In
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setZoom(prev => Math.max(0.001, prev / 2))}
+                onClick={() => setZoom(prev => Math.max(0.1, prev / 2))}
               >
                 Zoom Out
               </Button>
@@ -264,7 +264,7 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setZoom(canvasSize / worldSize);
+                  setZoom(0.8);
                   setPanX(worldSize / 2);
                   setPanY(worldSize / 2);
                 }}
