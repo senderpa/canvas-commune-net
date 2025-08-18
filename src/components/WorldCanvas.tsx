@@ -245,12 +245,12 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
   return (
     <div className="relative">
       {/* Edge indicators */}
-      <EdgeIndicators
-        worldX={paintState.x}
-        worldY={paintState.y}
-        worldSize={3162}
-        viewportSize={512}
-      />
+        <EdgeIndicators
+          worldX={paintState.x}
+          worldY={paintState.y}
+          worldSize={10000}
+          viewportSize={512}
+        />
 
       {/* Main canvas */}
       <canvas

@@ -24,8 +24,8 @@ const Index = () => {
   
   // Generate random starting position and color
   const [initialPosition] = useState(() => ({
-    x: Math.floor(Math.random() * (3162 - 512)),
-    y: Math.floor(Math.random() * (3162 - 512))
+    x: Math.floor(Math.random() * (10000 - 512)),
+    y: Math.floor(Math.random() * (10000 - 512))
   }));
   
   // Generate new random color on each page load
@@ -42,6 +42,7 @@ const Index = () => {
     ...initialPosition
   });
   
+  const [isStarted, setIsStarted] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
@@ -104,8 +105,8 @@ const Index = () => {
   
   const handleMove = useCallback((deltaX: number, deltaY: number) => {
     setTargetPosition(prev => ({
-      x: Math.max(0, Math.min(3162 - 512, prev.x + deltaX)),
-      y: Math.max(0, Math.min(3162 - 512, prev.y + deltaY))
+      x: Math.max(0, Math.min(10000 - 512, prev.x + deltaX)),
+      y: Math.max(0, Math.min(10000 - 512, prev.y + deltaY))
     }));
   }, []);
 
@@ -119,7 +120,7 @@ const Index = () => {
   }, 'id' | 'timestamp'>) => {
     // Ensure all stroke points are within world bounds
     const validPoints = stroke.points.filter(point => 
-      point.x >= 0 && point.x < 3162 && point.y >= 0 && point.y < 3162
+      point.x >= 0 && point.x < 10000 && point.y >= 0 && point.y < 10000
     );
     
     if (validPoints.length > 0) {
@@ -143,8 +144,8 @@ const Index = () => {
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
       
       // Random position in world
-      const startX = Math.random() * 3162;
-      const startY = Math.random() * 3162;
+      const startX = Math.random() * 10000;
+      const startY = Math.random() * 10000;
       
       // Create a random stroke with multiple points
       const points = [];
@@ -213,8 +214,41 @@ const Index = () => {
         overscrollBehavior: 'none'
       }}
     >
-      {/* Main canvas area - always centered */}
-      <div className="absolute inset-0 flex items-center justify-center">
+      {/* Start Window Overlay */}
+      {!isStarted && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center">
+            <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Welcome to MultiPainteR
+            </h1>
+            <p className="text-muted-foreground mb-6">
+              A collaborative painting experience on a massive 100 million pixel canvas!
+            </p>
+            <div className="space-y-4 mb-6">
+              <div className="text-sm text-muted-foreground">
+                🎨 Paint together with others in real-time
+              </div>
+              <div className="text-sm text-muted-foreground">  
+                🗺️ Explore a world of 10,000 × 10,000 pixels
+              </div>
+              <div className="text-sm text-muted-foreground">
+                ✨ Use transparency and various brush sizes
+              </div>
+            </div>
+            <button
+              onClick={() => setIsStarted(true)}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
+            >
+              Start Painting
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isStarted && (
+        <>
+          {/* Main canvas area - always centered */}
+          <div className="absolute inset-0 flex items-center justify-center">
         <WorldCanvas 
           paintState={paintState}
           strokes={strokes}
@@ -289,6 +323,8 @@ const Index = () => {
           strokes={strokes}
           onClose={() => setIsMapOpen(false)}
         />
+      )}
+        </>
       )}
     </div>
   );

@@ -23,13 +23,13 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
   const [isReverse, setIsReverse] = useState(true); // Start with reverse
   const [speed, setSpeed] = useState(1);
   const [zoom, setZoom] = useState(0.15); // Start zoomed out to show full canvas
-  const [panX, setPanX] = useState(1581); // Center of world
-  const [panY, setPanY] = useState(1581); // Center of world
+  const [panX, setPanX] = useState(5000); // Center of world
+  const [panY, setPanY] = useState(5000); // Center of world
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
 
   const canvasSize = 800; // Larger canvas for better visibility
-  const worldSize = 3162;
+  const worldSize = 10000;
 
   // Sort strokes by timestamp
   const sortedStrokes = [...strokes].sort((a, b) => a.timestamp - b.timestamp);

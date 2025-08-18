@@ -12,6 +12,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
   const [hue, setHue] = useState(0);
   const [saturation, setSaturation] = useState(100);
   const [value, setValue] = useState(50);
+  const [alpha, setAlpha] = useState(1);
   const [recentColors, setRecentColors] = useState<string[]>(() => {
     const saved = localStorage.getItem('recent-colors');
     return saved ? JSON.parse(saved) : ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff'];
@@ -44,8 +45,8 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     return { h, s, v };
   }, []);
 
-  // Convert HSV to hex
-  const hsvToHex = useCallback((h: number, s: number, v: number) => {
+  // Convert HSV to hex with alpha
+  const hsvToHex = useCallback((h: number, s: number, v: number, a: number = 1) => {
     const hh = h / 60;
     const ss = s / 100;
     const vv = v / 100;
@@ -66,6 +67,10 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     r = Math.round((r + m) * 255);
     g = Math.round((g + m) * 255);
     b = Math.round((b + m) * 255);
+    
+    if (a < 1) {
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
     
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }, []);
@@ -147,7 +152,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
   // Update color when HSV changes (debounced to prevent glitching)
   useEffect(() => {
     const timeout = setTimeout(() => {
-      const newColor = hsvToHex(hue, saturation, value);
+      const newColor = hsvToHex(hue, saturation, value, alpha);
       onColorChange(newColor);
       
       // Add to recent colors (keep last 5 unique)
@@ -159,7 +164,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     }, 50);
     
     return () => clearTimeout(timeout);
-  }, [hue, saturation, value, hsvToHex, onColorChange]);
+  }, [hue, saturation, value, alpha, hsvToHex, onColorChange]);
 
   if (!isOpen) return null;
 
@@ -191,13 +196,30 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
             <span className="text-sm text-muted-foreground">Brightness:</span>
             <input
               type="range"
-              min="10"
-              max="90"
+              min="20"
+              max="80"
               value={value}
               onChange={(e) => setValue(Number(e.target.value))}
               className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
             />
             <span className="text-sm font-mono w-8">{value}</span>
+          </div>
+        </div>
+
+        {/* Alpha slider */}
+        <div className="mb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">Opacity:</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={alpha}
+              onChange={(e) => setAlpha(Number(e.target.value))}
+              className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+            />
+            <span className="text-sm font-mono w-8">{Math.round(alpha * 100)}%</span>
           </div>
         </div>
 

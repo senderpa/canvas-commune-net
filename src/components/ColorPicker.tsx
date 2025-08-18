@@ -13,6 +13,7 @@ const ColorPicker = ({ color, onColorChange, size, onSizeChange, tool }: ColorPi
   const [hue, setHue] = useState(0);
   const [saturation, setSaturation] = useState(100);
   const [value, setValue] = useState(50);
+  const [alpha, setAlpha] = useState(1);
   const [hexInput, setHexInput] = useState(color);
   
   const wheelRef = useRef<HTMLCanvasElement>(null);
@@ -43,8 +44,8 @@ const ColorPicker = ({ color, onColorChange, size, onSizeChange, tool }: ColorPi
     return { h, s, v };
   }, []);
 
-  // Convert HSV to hex
-  const hsvToHex = useCallback((h: number, s: number, v: number) => {
+  // Convert HSV to hex with alpha
+  const hsvToHex = useCallback((h: number, s: number, v: number, a: number = 1) => {
     const hh = h / 60;
     const ss = s / 100;
     const vv = v / 100;
@@ -65,6 +66,10 @@ const ColorPicker = ({ color, onColorChange, size, onSizeChange, tool }: ColorPi
     r = Math.round((r + m) * 255);
     g = Math.round((g + m) * 255);
     b = Math.round((b + m) * 255);
+    
+    if (a < 1) {
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
     
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }, []);
@@ -126,12 +131,12 @@ const ColorPicker = ({ color, onColorChange, size, onSizeChange, tool }: ColorPi
     ctx.fillRect(0, 0, 20, 120);
   }, [hue, saturation]);
 
-  // Update color when HSV changes
+  // Update color when HSV or alpha changes
   useEffect(() => {
-    const newColor = hsvToHex(hue, saturation, value);
+    const newColor = hsvToHex(hue, saturation, value, alpha);
     setHexInput(newColor);
     onColorChange(newColor);
-  }, [hue, saturation, value, hsvToHex, onColorChange]);
+  }, [hue, saturation, value, alpha, hsvToHex, onColorChange]);
 
   // Update HSV when hex input changes
   const handleHexChange = useCallback((newHex: string) => {
@@ -141,7 +146,21 @@ const ColorPicker = ({ color, onColorChange, size, onSizeChange, tool }: ColorPi
       setHue(h);
       setSaturation(s);
       setValue(v);
+      setAlpha(1); // Reset alpha for hex colors
       onColorChange(newHex);
+    } else if (newHex.startsWith('rgba(')) {
+      // Handle rgba input
+      const match = newHex.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+      if (match) {
+        const [, r, g, b, a] = match;
+        const hex = `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`;
+        const { h, s, v } = hexToHsv(hex);
+        setHue(h);
+        setSaturation(s);
+        setValue(v);
+        setAlpha(parseFloat(a));
+        onColorChange(newHex);
+      }
     }
   }, [hexToHsv, onColorChange]);
 
@@ -226,12 +245,41 @@ const ColorPicker = ({ color, onColorChange, size, onSizeChange, tool }: ColorPi
         style={{ backgroundColor: color }}
       />
       
+      {/* Brightness control */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">Brightness:</span>
+        <input
+          type="range"
+          min="10"
+          max="90"
+          value={value}
+          onChange={(e) => setValue(Number(e.target.value))}
+          className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+        />
+        <span className="text-sm font-mono w-8 text-center">{value}</span>
+      </div>
+
+      {/* Transparency control */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">Opacity:</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.1"
+          value={alpha}
+          onChange={(e) => setAlpha(Number(e.target.value))}
+          className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+        />
+        <span className="text-sm font-mono w-8 text-center">{Math.round(alpha * 100)}%</span>
+      </div>
+      
       {/* Hex input */}
       <Input
         value={hexInput}
         onChange={(e) => handleHexChange(e.target.value)}
         className="text-xs font-mono"
-        placeholder="#ff0080"
+        placeholder="#ff0080 or rgba(255,0,128,0.5)"
       />
       
       {/* Quick colors */}
