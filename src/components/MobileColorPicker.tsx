@@ -191,8 +191,8 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
             <span className="text-sm text-muted-foreground">Brightness:</span>
             <input
               type="range"
-              min="0"
-              max="100"
+              min="10"
+              max="90"
               value={value}
               onChange={(e) => setValue(Number(e.target.value))}
               className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"

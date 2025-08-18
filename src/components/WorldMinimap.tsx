@@ -204,9 +204,9 @@ const WorldMinimap = ({ worldX, worldY, strokes, onClose }: WorldMinimapProps) =
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-card border border-border rounded-lg shadow-xl p-6 max-w-4xl w-full mx-4">
-        <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        <div className="flex justify-between items-center p-4 border-b border-border">
           <h3 className="text-lg font-semibold">Complete World Map</h3>
           <div className="flex items-center gap-2">
             <Button
@@ -239,13 +239,13 @@ const WorldMinimap = ({ worldX, worldY, strokes, onClose }: WorldMinimapProps) =
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative p-4">
           <canvas
             ref={canvasRef}
             width={minimapSize}
             height={minimapSize}
-            className="border border-border rounded bg-white cursor-move"
-            style={{ width: minimapSize, height: minimapSize }}
+            className="border border-border rounded bg-white cursor-move w-full max-w-full"
+            style={{ aspectRatio: '1', maxHeight: '60vh' }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -253,13 +253,13 @@ const WorldMinimap = ({ worldX, worldY, strokes, onClose }: WorldMinimapProps) =
             onWheel={handleWheel}
           />
           
-          <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
+          <div className="absolute top-6 right-6 bg-black/50 text-white px-2 py-1 rounded text-sm">
             Scale: {zoom < 1 ? `1:${Math.round(1/zoom)}` : `${Math.round(zoom)}:1`}
           </div>
-          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+          <div className="absolute bottom-6 left-6 bg-black/50 text-white px-2 py-1 rounded text-xs">
             Center: ({Math.round(panX)}, {Math.round(panY)})
           </div>
-          <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+          <div className="absolute bottom-6 right-6 bg-black/50 text-white px-2 py-1 rounded text-xs">
             💡 Drag to pan, scroll to zoom
           </div>
         </div>

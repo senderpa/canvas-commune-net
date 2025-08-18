@@ -75,15 +75,6 @@ const MobileOverlay = ({
         </div>
       </div>
 
-      {/* Color picker button */}
-      <div className="absolute top-32 left-4 z-20">
-        <button
-          onClick={() => setIsColorPickerOpen(true)}
-          className="w-12 h-12 rounded-lg border-2 border-border shadow-lg hover:scale-110 transition-transform"
-          style={{ backgroundColor: paintState.color }}
-        />
-      </div>
-
       {/* Size slider - horizontal */}
       <div className="absolute top-16 left-4 right-4 z-20">
         <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3">
@@ -109,6 +100,15 @@ const MobileOverlay = ({
             />
           </div>
         </div>
+      </div>
+
+      {/* Color picker button */}
+      <div className="absolute top-32 left-4 z-20">
+        <button
+          onClick={() => setIsColorPickerOpen(true)}
+          className="w-12 h-12 rounded-lg border-2 border-border shadow-lg hover:scale-110 transition-transform"
+          style={{ backgroundColor: paintState.color }}
+        />
       </div>
 
       {/* Stats */}
