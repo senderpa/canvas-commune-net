@@ -10,6 +10,7 @@ import MobileOverlay from '@/components/MobileOverlay';
 import QueueOverlay from '@/components/QueueOverlay';
 import KickedOverlay from '@/components/KickedOverlay';
 import { LivePreview } from '@/components/LivePreview';
+import TimeLapse from '@/components/TimeLapse';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
@@ -55,6 +56,7 @@ const Index = () => {
   }, [isStarted, sessionState.isConnected]);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
+  const [isTimeLapseOpen, setIsTimeLapseOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [targetPosition, setTargetPosition] = useState(initialPosition);
   const [lastStrokePosition, setLastStrokePosition] = useState(initialPosition);
@@ -218,6 +220,14 @@ const Index = () => {
             
             <LivePreview playerCount={sessionState.playerCount} />
             
+            {/* Timelapse Button */}
+            <button
+              onClick={() => setIsTimeLapseOpen(true)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 animate-pulse hover:animate-none mb-4"
+            >
+              🎬 World Timelapse
+            </button>
+            
             <button
               onClick={async () => {
                 const success = await joinSession();
@@ -286,9 +296,9 @@ const Index = () => {
                 <ToolBar
                   paintState={paintState}
                   setPaintState={setPaintState}
-                  onInfoOpen={() => setIsInfoOpen(true)}
-                  onPlayOpen={() => setIsPlayOpen(true)}
-                  onMapOpen={() => setIsMapOpen(true)}
+              onInfoOpen={() => setIsInfoOpen(true)}
+              onPlayOpen={() => setIsPlayOpen(true)}
+              onMapOpen={() => setIsMapOpen(true)}
                   strokeCount={strokes.length}
                 />
               </div>
@@ -312,9 +322,9 @@ const Index = () => {
               onToolChange={handleToolChange}
               onSizeChange={handleSizeChange}
               onMove={handleMove}
-              onInfoOpen={() => setIsInfoOpen(true)}
-              onPlayOpen={() => setIsPlayOpen(true)}
-              onMapOpen={() => setIsMapOpen(true)}
+                onInfoOpen={() => setIsInfoOpen(true)}
+                onPlayOpen={() => setIsPlayOpen(true)}
+                onMapOpen={() => setIsMapOpen(true)}
               strokeCount={strokes.length}
               playerCount={sessionState.playerCount}
               isConnected={sessionState.isConnected}
@@ -328,6 +338,11 @@ const Index = () => {
             strokes={canvasStrokes}
             isOpen={isPlayOpen}
             onClose={() => setIsPlayOpen(false)}
+          />
+
+          <TimeLapse
+            isOpen={isTimeLapseOpen}
+            onClose={() => setIsTimeLapseOpen(false)}
           />
 
           {/* World Map Overlay */}
