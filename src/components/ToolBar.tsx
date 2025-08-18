@@ -1,41 +1,47 @@
-import { Tool } from '@/pages/Index';
+import { PaintState, Tool } from '@/pages/Index';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Brush, Eraser, Play, Info } from 'lucide-react';
 
 interface ToolBarProps {
-  tool: Tool;
-  size: number;
-  onToolChange: (tool: Tool) => void;
-  onSizeChange: (size: number) => void;
+  paintState: PaintState;
+  setPaintState: React.Dispatch<React.SetStateAction<PaintState>>;
+  onInfoOpen: () => void;
+  onPlayOpen: () => void;
+  strokeCount: number;
 }
 
-const ToolBar = ({ tool, size, onToolChange, onSizeChange }: ToolBarProps) => {
+const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, strokeCount }: ToolBarProps) => {
+  const handleToolChange = (tool: Tool) => {
+    setPaintState(prev => ({ ...prev, tool }));
+  };
+
+  const handleSizeChange = (size: number) => {
+    setPaintState(prev => ({ ...prev, size }));
+  };
+
   return (
     <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-xl">
       <div className="flex items-center gap-4">
         {/* Tool selection */}
         <div className="flex gap-2">
           <Button
-            variant={tool === 'brush' ? 'default' : 'secondary'}
+            variant={paintState.tool === 'brush' ? 'default' : 'secondary'}
             size="sm"
-            onClick={() => onToolChange('brush')}
+            onClick={() => handleToolChange('brush')}
             className="gap-2"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
+            <Brush className="w-4 h-4" />
             Brush
           </Button>
           
           <Button
-            variant={tool === 'eraser' ? 'default' : 'secondary'}
+            variant={paintState.tool === 'eraser' ? 'default' : 'secondary'}
             size="sm"
-            onClick={() => onToolChange('eraser')}
+            onClick={() => handleToolChange('eraser')}
             className="gap-2"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+            <Eraser className="w-4 h-4" />
             Eraser
           </Button>
         </div>
@@ -45,15 +51,15 @@ const ToolBar = ({ tool, size, onToolChange, onSizeChange }: ToolBarProps) => {
           <span className="text-sm text-muted-foreground">Size:</span>
           <div className="flex-1">
             <Slider
-              value={[size]}
-              onValueChange={(values) => onSizeChange(values[0])}
+              value={[paintState.size]}
+              onValueChange={(values) => handleSizeChange(values[0])}
               min={1}
               max={50}
               step={1}
               className="w-full"
             />
           </div>
-          <span className="text-sm font-medium w-6 text-center">{size}</span>
+          <span className="text-sm font-medium w-6 text-center">{paintState.size}</span>
         </div>
 
         {/* Size preview */}
@@ -61,13 +67,27 @@ const ToolBar = ({ tool, size, onToolChange, onSizeChange }: ToolBarProps) => {
           <div
             className="rounded-full border border-border"
             style={{
-              width: `${Math.max(2, size)}px`,
-              height: `${Math.max(2, size)}px`,
-              backgroundColor: tool === 'eraser' ? 'transparent' : 'currentColor',
-              borderStyle: tool === 'eraser' ? 'dashed' : 'solid'
+              width: `${Math.max(2, paintState.size)}px`,
+              height: `${Math.max(2, paintState.size)}px`,
+              backgroundColor: paintState.tool === 'eraser' ? 'transparent' : paintState.color,
+              borderStyle: paintState.tool === 'eraser' ? 'dashed' : 'solid'
             }}
           />
         </div>
+
+        {/* Animation button */}
+        <Button 
+          onClick={onPlayOpen}
+          variant="outline" 
+          size="sm"
+        >
+          <Play className="w-4 h-4 mr-2" />
+          Animation ({strokeCount})
+        </Button>
+        
+        <Button onClick={onInfoOpen} variant="outline" size="sm">
+          <Info className="w-4 h-4" />
+        </Button>
       </div>
     </div>
   );

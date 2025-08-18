@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { PaintState } from '@/pages/Index';
+import EdgeIndicators from './EdgeIndicators';
 
 interface Stroke {
   id: string;
@@ -342,6 +343,14 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
 
   return (
     <div className="relative">
+      {/* Edge indicators */}
+      <EdgeIndicators
+        worldX={paintState.x}
+        worldY={paintState.y}
+        worldSize={1000000}
+        viewportSize={512}
+      />
+
       {/* Navigation arrows around canvas */}
       <div className="absolute -top-14 left-1/2 -translate-x-1/2">
         <ArrowButton direction="up" />

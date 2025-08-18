@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import WorldCanvas from '@/components/WorldCanvas';
 import ColorPicker from '@/components/ColorPicker';
 import ToolBar from '@/components/ToolBar';
-import Minimap from '@/components/Minimap';
+import SmallMinimap from '@/components/SmallMinimap';
+import MinimapModal from '@/components/MinimapModal';
 import PlayerStats from '@/components/PlayerStats';
 import MobileControls from '@/components/MobileControls';
 import InfoDialog from '@/components/InfoDialog';
@@ -42,9 +43,15 @@ const Index = () => {
   
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
-  const [isMinimapOpen, setIsMinimapOpen] = useState(false);
+  const [isFullMinimapOpen, setIsFullMinimapOpen] = useState(false);
   
-  // Load strokes from localStorage on startup
+  // Reset and start fresh - clear localStorage
+  useEffect(() => {
+    localStorage.removeItem('multipainter-strokes');
+    localStorage.removeItem('multipainter-stroke-count');
+  }, []);
+  
+  // Load strokes from localStorage on startup (now empty)
   const [strokes, setStrokes] = useState<Array<{
     id: string;
     points: { x: number; y: number }[];
@@ -52,25 +59,10 @@ const Index = () => {
     size: number;
     tool: 'brush' | 'eraser';
     timestamp: number;
-  }>>(() => {
-    try {
-      const saved = localStorage.getItem('multipainter-strokes');
-      return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error('Failed to load strokes from localStorage:', error);
-      return [];
-    }
-  });
+  }>>([]);
   
   const [targetPosition, setTargetPosition] = useState(initialPosition);
-  const [strokeCount, setStrokeCount] = useState(() => {
-    try {
-      const saved = localStorage.getItem('multipainter-stroke-count');
-      return saved ? parseInt(saved, 10) : 0;
-    } catch (error) {
-      return 0;
-    }
-  });
+  const [strokeCount, setStrokeCount] = useState(0);
 
   // Save strokes to localStorage whenever strokes change
   useEffect(() => {
@@ -127,12 +119,6 @@ const Index = () => {
     }
   }, []);
 
-  const handleMinimapJump = useCallback((x: number, y: number) => {
-    const newX = Math.max(0, Math.min(1000000 - 512, x));
-    const newY = Math.max(0, Math.min(1000000 - 512, y));
-    setTargetPosition({ x: newX, y: newY });
-  }, []);
-
   // Simulate other players' strokes every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
@@ -169,6 +155,7 @@ const Index = () => {
 
     return () => clearInterval(interval);
   }, []);
+
   // Smooth lerp movement
   useEffect(() => {
     const lerp = (start: number, end: number, factor: number) => {
@@ -226,66 +213,18 @@ const Index = () => {
 
       {/* Toolbar - top */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
-        <ToolBar 
-          tool={paintState.tool}
-          size={paintState.size}
-          onToolChange={handleToolChange}
-          onSizeChange={handleSizeChange}
+        <ToolBar
+          paintState={paintState}
+          setPaintState={setPaintState}
+          onInfoOpen={() => setIsInfoOpen(true)}
+          onPlayOpen={() => setIsPlayOpen(true)}
+          strokeCount={strokes.length}
         />
       </div>
 
-      {/* Minimap - top right (toggleable) */}
-      {isMinimapOpen && (
-        <div className="absolute top-6 right-6 z-10">
-          <Minimap 
-            worldX={paintState.x}
-            worldY={paintState.y}
-            strokes={strokes}
-          />
-        </div>
-      )}
-
-      {/* Minimap toggle button - top right */}
-      <div className="absolute top-6 right-6 z-20">
-        <button
-          onClick={() => setIsMinimapOpen(!isMinimapOpen)}
-          className="bg-card/80 backdrop-blur-sm border border-border rounded-lg p-3 hover:bg-card/90 transition-all duration-300 ml-auto block"
-        >
-          <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-              d={isMinimapOpen 
-                ? "M6 18L18 6M6 6l12 12" 
-                : "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-              } 
-            />
-          </svg>
-        </button>
-      </div>
-
-      {/* Player stats - bottom right */}
-      <div className="absolute bottom-6 right-6 z-10">
+      {/* Player stats - bottom left */}
+      <div className="absolute bottom-6 left-6 z-10">
         <PlayerStats strokeCount={strokeCount} />
-      </div>
-
-      {/* Control buttons - bottom left */}
-      <div className="absolute bottom-6 left-6 z-10 flex gap-3">
-        <button
-          onClick={() => setIsInfoOpen(true)}
-          className="bg-card/80 backdrop-blur-sm border border-border rounded-lg p-3 hover:bg-card/90 transition-all duration-300"
-        >
-          <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </button>
-        
-        <button
-          onClick={() => setIsPlayOpen(true)}
-          className="bg-card/80 backdrop-blur-sm border border-border rounded-lg p-3 hover:bg-card/90 transition-all duration-300"
-        >
-          <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M15 14h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </button>
       </div>
 
       {/* Mobile controls - bottom center */}
@@ -295,6 +234,24 @@ const Index = () => {
         </div>
       )}
 
+      {/* Small always-visible minimap */}
+      <SmallMinimap
+        worldX={paintState.x}
+        worldY={paintState.y}
+        strokes={strokes}
+        onOpenFullMinimap={() => setIsFullMinimapOpen(true)}
+      />
+
+      {/* Full minimap modal */}
+      <MinimapModal
+        isOpen={isFullMinimapOpen}
+        onClose={() => setIsFullMinimapOpen(false)}
+        worldX={paintState.x}
+        worldY={paintState.y}
+        strokes={strokes}
+      />
+
+      {/* Dialogs */}
       <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />
       
       <AnimationReplay 

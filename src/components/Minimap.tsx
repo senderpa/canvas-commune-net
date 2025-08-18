@@ -137,10 +137,29 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // Calculate zoom
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.5, Math.min(5, zoomLevel * delta));
-    setZoomLevel(newZoom);
-  }, [zoomLevel]);
+    const newZoom = Math.max(0.5, Math.min(10, zoomLevel * delta)); // Max zoom shows 512x512 area
+    
+    if (newZoom !== zoomLevel) {
+      // Zoom towards cursor position
+      const zoomRatio = newZoom / zoomLevel;
+      const newPanX = mouseX - (mouseX - panX) * zoomRatio;
+      const newPanY = mouseY - (mouseY - panY) * zoomRatio;
+      
+      setZoomLevel(newZoom);
+      setPanX(newPanX);
+      setPanY(newPanY);
+    }
+  }, [zoomLevel, panX, panY]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
