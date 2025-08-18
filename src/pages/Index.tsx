@@ -296,10 +296,12 @@ const Index = () => {
                 <ToolBar
                   paintState={paintState}
                   setPaintState={setPaintState}
-              onInfoOpen={() => setIsInfoOpen(true)}
-              onPlayOpen={() => setIsPlayOpen(true)}
-              onMapOpen={() => setIsMapOpen(true)}
+                  onInfoOpen={() => setIsInfoOpen(true)}
+                  onPlayOpen={() => setIsPlayOpen(true)}
+                  onMapOpen={() => setIsMapOpen(true)}
                   strokeCount={strokes.length}
+                  onColorChange={handleColorChange}
+                  onSizeChange={handleSizeChange}
                 />
               </div>
 
