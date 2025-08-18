@@ -21,7 +21,7 @@ interface WorldMinimapProps {
 
 const WorldMinimap = ({ worldX, worldY, strokes, currentPlayerId, onClose }: WorldMinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [zoom, setZoom] = useState(0.15); // Start zoomed out to show full world
+  const [zoom, setZoom] = useState(0.06); // Show full world (10000 pixels in 600px canvas = 0.06)
   const [panX, setPanX] = useState(5000); // Center of world (10000/2)
   const [panY, setPanY] = useState(5000); // Center of world (10000/2)
   const [isDragging, setIsDragging] = useState(false);
@@ -246,7 +246,7 @@ const WorldMinimap = ({ worldX, worldY, strokes, currentPlayerId, onClose }: Wor
               size="sm"
               variant="outline"
               onClick={() => {
-                setZoom(0.15);
+                setZoom(0.06);
                 setPanX(worldSize / 2);
                 setPanY(worldSize / 2);
               }}
