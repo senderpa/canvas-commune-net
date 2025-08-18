@@ -17,7 +17,7 @@ interface MinimapProps {
 
 const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const size = 300;
+  const size = 600; // Doubled size
   const worldSize = 1000000;
   const viewportSize = 512;
   
@@ -70,15 +70,15 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
 
       if (inBounds) {
         ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
-        ctx.lineWidth = Math.max(0.5, stroke.size / 20); // Scale line width
+        ctx.lineWidth = Math.max(1, stroke.size / 8); // Made strokes more visible
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
         if (minimapPoints.length === 1) {
-          // Single point - draw as small circle
+          // Single point - draw as larger circle
           const point = minimapPoints[0];
           ctx.beginPath();
-          ctx.arc(point.x, point.y, Math.max(0.5, stroke.size / 30), 0, 2 * Math.PI);
+          ctx.arc(point.x, point.y, Math.max(1, stroke.size / 12), 0, 2 * Math.PI);
           ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
           ctx.fill();
         } else {
@@ -93,24 +93,24 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
       }
     });
     
-    // Draw current viewport rectangle
+    // Draw current viewport rectangle (made more visible)
     const viewX = (worldX / worldSize) * size;
     const viewY = (worldY / worldSize) * size;
     const viewW = (viewportSize / worldSize) * size;
     const viewH = (viewportSize / worldSize) * size;
     
-    // Viewport outline
+    // Viewport outline with stronger visibility
     ctx.strokeStyle = '#ff0080';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3; // Thicker line
     ctx.strokeRect(viewX, viewY, viewW, viewH);
     
-    // Player position dot
+    // Player position dot (larger)
     const playerX = viewX + viewW / 2;
     const playerY = viewY + viewH / 2;
     
     ctx.fillStyle = '#ff0080';
     ctx.beginPath();
-    ctx.arc(playerX, playerY, 3, 0, 2 * Math.PI);
+    ctx.arc(playerX, playerY, 5, 0, 2 * Math.PI); // Larger dot
     ctx.fill();
     
   }, [worldX, worldY, strokes]);

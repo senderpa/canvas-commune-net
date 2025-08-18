@@ -232,6 +232,21 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     const ctx = canvas?.getContext('2d');
     if (!ctx) return;
 
+    // Edge panning - move viewport when painting near edges
+    const edgeThreshold = 50; // pixels from edge
+    const panSpeed = 2;
+    let panDeltaX = 0;
+    let panDeltaY = 0;
+
+    if (point.x < edgeThreshold) panDeltaX = -panSpeed;
+    if (point.x > 512 - edgeThreshold) panDeltaX = panSpeed;
+    if (point.y < edgeThreshold) panDeltaY = -panSpeed;
+    if (point.y > 512 - edgeThreshold) panDeltaY = panSpeed;
+
+    if (panDeltaX !== 0 || panDeltaY !== 0) {
+      onMove(panDeltaX, panDeltaY);
+    }
+
     // Add point to current stroke
     const worldPos = viewportToWorld(point.x, point.y);
     currentStrokeRef.current.push(worldPos);
@@ -249,7 +264,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       ctx.lineJoin = 'round';
       ctx.stroke();
     }
-  }, [getCanvasPoint, viewportToWorld, worldToViewport, paintState]);
+  }, [getCanvasPoint, viewportToWorld, worldToViewport, paintState, onMove]);
 
   const handlePointerUp = useCallback(() => {
     if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
