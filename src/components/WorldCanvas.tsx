@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { PaintState } from '@/pages/Index';
 import EdgeIndicators from './EdgeIndicators';
 
@@ -267,17 +267,17 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     currentStrokeRef.current = [];
   }, [onStroke, paintState]);
 
-  // Simple arrow movement system - immediate stop
+  // Arrow button system with pink toggle state
   const ArrowButton = ({ direction }: { direction: string }) => {
+    const [isPressed, setIsPressed] = useState(false);
+    const animationRef = useRef<number>();
+    
     const icons = {
       up: "M5 15l7-7 7 7",
       down: "M19 9l-7 7-7-7", 
       left: "M15 19l-7-7 7-7",
       right: "M9 5l7 7-7 7"
     };
-
-    const animationRef = useRef<number>();
-    const isMovingRef = useRef(false);
 
     const getMovement = (dir: string) => {
       switch (dir) {
@@ -291,13 +291,11 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
 
     const startMovement = (e: React.MouseEvent | React.TouchEvent) => {
       e.preventDefault();
-      if (isMovingRef.current) return;
+      setIsPressed(true);
       
-      isMovingRef.current = true;
       const movement = getMovement(direction);
       
       const move = () => {
-        if (!isMovingRef.current) return;
         onMove(movement.x, movement.y);
         animationRef.current = requestAnimationFrame(move);
       };
@@ -305,8 +303,10 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       move();
     };
 
-    const stopMovement = () => {
-      isMovingRef.current = false;
+    const stopMovement = (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      setIsPressed(false);
+      
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = undefined;
@@ -322,7 +322,11 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
         onTouchEnd={stopMovement}
         onTouchCancel={stopMovement}
         onContextMenu={(e) => e.preventDefault()}
-        className="absolute w-10 h-10 bg-card/80 border border-border rounded-lg hover:bg-card transition-all duration-200 flex items-center justify-center shadow-lg select-none touch-manipulation"
+        className={`absolute w-10 h-10 border border-border rounded-lg transition-all duration-200 flex items-center justify-center shadow-lg select-none touch-manipulation ${
+          isPressed 
+            ? 'bg-pink-500 text-white scale-95 shadow-pink-500/50' 
+            : 'bg-card/80 hover:bg-card'
+        }`}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icons[direction as keyof typeof icons]} />

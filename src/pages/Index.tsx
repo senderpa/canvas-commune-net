@@ -27,13 +27,15 @@ const Index = () => {
     y: Math.floor(Math.random() * (1000000 - 512))
   }));
   
-  const [randomColor] = useState(() => {
-    const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff'];
-    return colors[Math.floor(Math.random() * colors.length)];
-  });
+  // Generate new random color on each page load
+  useEffect(() => {
+    const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff'];
+    const newColor = colors[Math.floor(Math.random() * colors.length)];
+    setPaintState(prev => ({ ...prev, color: newColor }));
+  }, []);
   
   const [paintState, setPaintState] = useState<PaintState>({
-    color: randomColor,
+    color: '#ff0080', // Will be overridden by useEffect
     tool: 'brush',
     size: 3,
     ...initialPosition

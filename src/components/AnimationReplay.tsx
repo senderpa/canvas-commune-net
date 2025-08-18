@@ -22,50 +22,49 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
+  const [panX, setPanX] = useState(500000); // Center of 1M world
+  const [panY, setPanY] = useState(500000); // Center of 1M world
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
-  const animationRef = useRef<number>();
 
-  const size = 600;
+  const canvasSize = 800; // Larger canvas for better visibility
   const worldSize = 1000000;
 
   // Sort strokes by timestamp
   const sortedStrokes = [...strokes].sort((a, b) => a.timestamp - b.timestamp);
 
-  // Draw stroke on canvas with zoom and pan
+  // Draw stroke on canvas - fixed coordinate system
   const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke) => {
     if (stroke.points.length === 0) return;
 
-    // Convert world coordinates to canvas coordinates with zoom and pan
+    ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
+    ctx.lineWidth = Math.max(0.5, stroke.size * zoom);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Convert world coordinates to canvas coordinates
     const canvasPoints = stroke.points.map(point => ({
-      x: ((point.x / worldSize) * size - panX) * zoom + size / 2,
-      y: ((point.y / worldSize) * size - panY) * zoom + size / 2
+      x: ((point.x - panX) * zoom) + canvasSize / 2,
+      y: ((point.y - panY) * zoom) + canvasSize / 2
     }));
 
-    // Check if stroke is visible in viewport
+    // Check if any part of stroke is visible
     const isVisible = canvasPoints.some(point => 
-      point.x >= -stroke.size && point.x <= size + stroke.size &&
-      point.y >= -stroke.size && point.y <= size + stroke.size
+      point.x >= -stroke.size * zoom && point.x <= canvasSize + stroke.size * zoom &&
+      point.y >= -stroke.size * zoom && point.y <= canvasSize + stroke.size * zoom
     );
 
     if (!isVisible) return;
-
-    ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
-    ctx.lineWidth = Math.max(0.5, (stroke.size * zoom) / 5);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
 
     if (canvasPoints.length === 1) {
       // Single point
       const point = canvasPoints[0];
       ctx.beginPath();
-      ctx.arc(point.x, point.y, Math.max(0.5, (stroke.size * zoom) / 10), 0, 2 * Math.PI);
+      ctx.arc(point.x, point.y, Math.max(0.5, stroke.size * zoom / 2), 0, 2 * Math.PI);
       ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
       ctx.fill();
     } else {
-      // Multiple points
+      // Multiple points - draw connected lines
       ctx.beginPath();
       ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
       for (let i = 1; i < canvasPoints.length; i++) {
@@ -73,9 +72,9 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
       }
       ctx.stroke();
     }
-  }, [zoom, panX, panY]);
+  }, [zoom, panX, panY, canvasSize]);
 
-  // Render animation up to current stroke with zoom and pan
+  // Render animation up to current stroke
   const renderAnimation = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -83,29 +82,24 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
+    // Clear canvas with white background
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, canvasSize, canvasSize);
 
-    // Draw grid based on zoom level
-    ctx.strokeStyle = zoom > 10 ? '#f8f8f8' : '#f0f0f0';
+    // Draw light grid for reference
+    ctx.strokeStyle = '#f0f0f0';
     ctx.lineWidth = 1;
     
-    const gridSpacing = Math.max(10, 50 / zoom);
-    const startX = Math.floor((-panX * zoom + size / 2) / gridSpacing) * gridSpacing;
-    const startY = Math.floor((-panY * zoom + size / 2) / gridSpacing) * gridSpacing;
-    
-    for (let x = startX; x < size + gridSpacing; x += gridSpacing) {
+    const gridSpacing = Math.max(20, 100 * zoom);
+    for (let i = 0; i < canvasSize; i += gridSpacing) {
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, size);
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, canvasSize);
       ctx.stroke();
-    }
-    
-    for (let y = startY; y < size + gridSpacing; y += gridSpacing) {
+      
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(size, y);
+      ctx.moveTo(0, i);
+      ctx.lineTo(canvasSize, i);
       ctx.stroke();
     }
 
@@ -113,14 +107,21 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
     for (let i = 0; i <= currentStrokeIndex && i < sortedStrokes.length; i++) {
       drawStroke(ctx, sortedStrokes[i]);
     }
-  }, [currentStrokeIndex, sortedStrokes, drawStroke, zoom, panX, panY]);
+  }, [currentStrokeIndex, sortedStrokes, drawStroke, zoom, panX, panY, canvasSize]);
 
-  // Animation loop
+  // Animation loop - auto-start when opened
+  useEffect(() => {
+    if (isOpen && sortedStrokes.length > 0) {
+      setIsPlaying(true);
+      setCurrentStrokeIndex(0);
+    }
+  }, [isOpen, sortedStrokes.length]);
+
   useEffect(() => {
     if (isPlaying && currentStrokeIndex < sortedStrokes.length - 1) {
       const timeout = setTimeout(() => {
         setCurrentStrokeIndex(prev => prev + 1);
-      }, 100 / speed); // Adjust speed
+      }, Math.max(50, 200 / speed));
 
       return () => clearTimeout(timeout);
     } else if (currentStrokeIndex >= sortedStrokes.length - 1) {
@@ -133,10 +134,10 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
     renderAnimation();
-  }, [renderAnimation]);
+  }, [renderAnimation, canvasSize]);
 
   const handlePlay = () => setIsPlaying(!isPlaying);
   const handleReset = () => {
@@ -174,14 +175,16 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    const worldX = (mouseX - size / 2) / zoom + panX;
-    const worldY = (mouseY - size / 2) / zoom + panY;
+    // Convert mouse position to world coordinates
+    const worldX = panX + (mouseX - canvasSize / 2) / zoom;
+    const worldY = panY + (mouseY - canvasSize / 2) / zoom;
     
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(100, zoom * zoomFactor));
+    const zoomFactor = e.deltaY > 0 ? 0.8 : 1.25;
+    const newZoom = Math.max(0.001, Math.min(512 / 1000000 * canvasSize, zoom * zoomFactor));
     
-    setPanX(worldX - (mouseX - size / 2) / newZoom);
-    setPanY(worldY - (mouseY - size / 2) / newZoom);
+    // Keep the mouse position fixed during zoom
+    setPanX(worldX - (mouseX - canvasSize / 2) / newZoom);
+    setPanY(worldY - (mouseY - canvasSize / 2) / newZoom);
     setZoom(newZoom);
   };
 
@@ -202,10 +205,10 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
         <div className="mb-4 relative">
           <canvas
             ref={canvasRef}
-            width={size}
-            height={size}
-            className="border border-border rounded bg-white cursor-move"
-            style={{ width: '100%', maxWidth: '600px', aspectRatio: '1' }}
+            width={canvasSize}
+            height={canvasSize}
+            className="border border-border rounded bg-white cursor-move max-w-full"
+            style={{ width: '100%', aspectRatio: '1', maxHeight: '70vh' }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -215,7 +218,12 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
           
           {/* Zoom indicator */}
           <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
-            {Math.round(zoom * 100)}%
+            Zoom: {Math.round(zoom * worldSize / canvasSize * 100)}%
+          </div>
+          
+          {/* World position indicator */}
+          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+            World: ({Math.round(panX)}, {Math.round(panY)})
           </div>
         </div>
 
@@ -241,14 +249,14 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setZoom(prev => Math.min(100, prev * 2))}
+                onClick={() => setZoom(prev => Math.min(512 / 1000000 * canvasSize, prev * 2))}
               >
                 Zoom In
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setZoom(prev => Math.max(0.1, prev / 2))}
+                onClick={() => setZoom(prev => Math.max(0.001, prev / 2))}
               >
                 Zoom Out
               </Button>
@@ -256,12 +264,12 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setZoom(1);
-                  setPanX(0);
-                  setPanY(0);
+                  setZoom(canvasSize / worldSize);
+                  setPanX(worldSize / 2);
+                  setPanY(worldSize / 2);
                 }}
               >
-                Reset View
+                Fit All
               </Button>
             </div>
             
