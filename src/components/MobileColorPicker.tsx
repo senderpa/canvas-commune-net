@@ -146,6 +146,17 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     }
   }, [hue, value, isOpen]);
 
+  // Add to recent colors only when wheel interaction happens (not sliders)
+  const addToRecentColors = useCallback((newColor: string) => {
+    if (newColor && (newColor.match(/^#[0-9A-F]{6}$/i) || newColor.startsWith('rgba('))) {
+      setRecentColors(prev => {
+        const updated = [newColor, ...prev.filter(c => c !== newColor)].slice(0, 5);
+        localStorage.setItem('recent-colors', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, []);
+
   const handleWheelTouch = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
     const canvas = wheelRef.current;
@@ -165,12 +176,18 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     if (distance > 55 && distance < 96) {
       // Touched on hue ring
       setHue(normalizedAngle);
+      // Add to recent colors when picking from wheel
+      const newColor = hsvToHex(normalizedAngle, saturation, value, alpha);
+      addToRecentColors(newColor);
     } else if (distance < 55) {
       // Touched inside for saturation
       const sat = Math.min(100, (distance / 55) * 100);
       setSaturation(sat);
+      // Add to recent colors when picking from wheel
+      const newColor = hsvToHex(hue, sat, value, alpha);
+      addToRecentColors(newColor);
     }
-  }, []);
+  }, [saturation, value, alpha, hue, hsvToHex, addToRecentColors]);
 
   // Update color when HSV changes (debounced to prevent glitching)
   useEffect(() => {
@@ -183,15 +200,6 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
       
       const newColor = hsvToHex(safeHue, safeSaturation, safeValue, safeAlpha);
       onColorChange(newColor);
-      
-      // Add to recent colors (keep last 5 unique) - only add valid hex colors
-      if (newColor && newColor.match(/^#[0-9A-F]{6}$/i) || newColor.startsWith('rgba(')) {
-        setRecentColors(prev => {
-          const updated = [newColor, ...prev.filter(c => c !== newColor)].slice(0, 5);
-          localStorage.setItem('recent-colors', JSON.stringify(updated));
-          return updated;
-        });
-      }
     }, 50);
     
     return () => clearTimeout(timeout);
