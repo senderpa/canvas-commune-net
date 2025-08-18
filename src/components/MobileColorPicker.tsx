@@ -175,15 +175,23 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
   // Update color when HSV changes (debounced to prevent glitching)
   useEffect(() => {
     const timeout = setTimeout(() => {
-      const newColor = hsvToHex(hue, saturation, value, alpha);
+      // Validate all values before creating color
+      const safeHue = Math.max(0, Math.min(360, isNaN(hue) ? 0 : hue));
+      const safeSaturation = Math.max(0, Math.min(100, isNaN(saturation) ? 100 : saturation));
+      const safeValue = Math.max(20, Math.min(80, isNaN(value) ? 50 : value));
+      const safeAlpha = Math.max(0.1, Math.min(1, isNaN(alpha) ? 1 : alpha));
+      
+      const newColor = hsvToHex(safeHue, safeSaturation, safeValue, safeAlpha);
       onColorChange(newColor);
       
-      // Add to recent colors (keep last 5 unique)
-      setRecentColors(prev => {
-        const updated = [newColor, ...prev.filter(c => c !== newColor)].slice(0, 5);
-        localStorage.setItem('recent-colors', JSON.stringify(updated));
-        return updated;
-      });
+      // Add to recent colors (keep last 5 unique) - only add valid hex colors
+      if (newColor && newColor.match(/^#[0-9A-F]{6}$/i) || newColor.startsWith('rgba(')) {
+        setRecentColors(prev => {
+          const updated = [newColor, ...prev.filter(c => c !== newColor)].slice(0, 5);
+          localStorage.setItem('recent-colors', JSON.stringify(updated));
+          return updated;
+        });
+      }
     }, 50);
     
     return () => clearTimeout(timeout);
@@ -217,21 +225,24 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-medium text-muted-foreground">Brightness:</span>
-            <span className="text-sm font-mono w-8 ml-auto">{value}</span>
+            <span className="text-sm font-mono w-8 ml-auto">{isNaN(value) ? 50 : Math.round(value)}</span>
           </div>
           <div className="relative">
             <input
               type="range"
               min="20"
               max="80"
-              value={value}
-              onChange={(e) => setValue(Number(e.target.value))}
+              value={isNaN(value) ? 50 : value}
+              onChange={(e) => {
+                const newValue = Number(e.target.value);
+                if (!isNaN(newValue)) setValue(newValue);
+              }}
               className="w-full h-8 bg-gradient-to-r from-black via-gray-500 to-white rounded-lg appearance-none cursor-pointer slider-thumb"
               style={{
                 background: `linear-gradient(to right, 
-                  hsl(${hue}, ${saturation}%, 20%) 0%, 
-                  hsl(${hue}, ${saturation}%, 50%) 50%, 
-                  hsl(${hue}, ${saturation}%, 80%) 100%)`
+                  hsl(${isNaN(hue) ? 0 : hue}, ${isNaN(saturation) ? 100 : saturation}%, 20%) 0%, 
+                  hsl(${isNaN(hue) ? 0 : hue}, ${isNaN(saturation) ? 100 : saturation}%, 50%) 50%, 
+                  hsl(${isNaN(hue) ? 0 : hue}, ${isNaN(saturation) ? 100 : saturation}%, 80%) 100%)`
               }}
             />
           </div>
@@ -241,7 +252,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-medium text-muted-foreground">Opacity:</span>
-            <span className="text-sm font-mono w-8 ml-auto">{Math.round(alpha * 100)}%</span>
+            <span className="text-sm font-mono w-8 ml-auto">{isNaN(alpha) ? 100 : Math.round(alpha * 100)}%</span>
           </div>
           <div className="relative">
             <div className="w-full h-8 bg-gradient-to-r from-gray-200 via-white to-gray-200 rounded-lg"></div>
@@ -250,13 +261,16 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
               min="0.1"
               max="1"
               step="0.1"
-              value={alpha}
-              onChange={(e) => setAlpha(Number(e.target.value))}
+              value={isNaN(alpha) ? 1 : alpha}
+              onChange={(e) => {
+                const newAlpha = Number(e.target.value);
+                if (!isNaN(newAlpha)) setAlpha(newAlpha);
+              }}
               className="absolute top-0 w-full h-8 rounded-lg appearance-none cursor-pointer slider-thumb bg-transparent"
               style={{
                 background: `linear-gradient(to right, 
-                  ${hsvToHex(hue, saturation, value, 0.1)} 10%, 
-                  ${hsvToHex(hue, saturation, value, 1)} 100%)`
+                  ${hsvToHex(isNaN(hue) ? 0 : hue, isNaN(saturation) ? 100 : saturation, isNaN(value) ? 50 : value, 0.1)} 10%, 
+                  ${hsvToHex(isNaN(hue) ? 0 : hue, isNaN(saturation) ? 100 : saturation, isNaN(value) ? 50 : value, 1)} 100%)`
               }}
             />
           </div>

@@ -88,7 +88,7 @@ const MobileOverlay = ({
             <input
               type="range"
               min="1"
-              max="20"
+              max="50"
               value={paintState.size}
               onChange={(e) => onSizeChange(Number(e.target.value))}
               className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
