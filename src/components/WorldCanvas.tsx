@@ -214,8 +214,10 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     const worldPos = viewportToWorld(point.x, point.y);
     currentStrokeRef.current.push(worldPos);
 
-    // Force re-render to show updated stroke without glitching
-    renderStrokes();
+    // Throttle re-rendering during drawing to prevent mobile glitches
+    requestAnimationFrame(() => {
+      renderStrokes();
+    });
 
     // Handle edge panning while drawing
     handleEdgePanning(e.clientX, e.clientY);

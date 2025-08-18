@@ -294,9 +294,6 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
           <div className="absolute bottom-6 left-6 bg-black/50 text-white px-2 py-1 rounded text-xs">
             Center: ({Math.round(panX)}, {Math.round(panY)})
           </div>
-          <div className="absolute bottom-6 right-6 bg-black/50 text-white px-2 py-1 rounded text-xs">
-            💡 Drag to pan, scroll to zoom
-          </div>
         </div>
       </div>
     </div>

@@ -86,7 +86,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     }
   }, [color, hexToHsv]);
 
-  // Draw color wheel
+  // Draw color wheel - always draw on mount and when values change
   useEffect(() => {
     const canvas = wheelRef.current;
     if (!canvas) return;
@@ -101,7 +101,10 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     canvas.width = size;
     canvas.height = size;
     
-    // Draw hue wheel
+    // Clear canvas first
+    ctx.clearRect(0, 0, size, size);
+    
+    // Draw hue wheel - always visible
     for (let angle = 0; angle < 360; angle += 1) {
       const startAngle = (angle - 1) * Math.PI / 180;
       const endAngle = angle * Math.PI / 180;
@@ -122,7 +125,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     ctx.arc(center, center, radius - 15, 0, 2 * Math.PI);
     ctx.fillStyle = gradient;
     ctx.fill();
-  }, [hue, value]);
+  }, [hue, value, isOpen]); // Add isOpen to force redraw when picker opens
 
   const handleWheelTouch = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
@@ -222,18 +225,18 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
             <span className="text-sm font-mono w-8 ml-auto">{Math.round(alpha * 100)}%</span>
           </div>
           <div className="relative">
-            <div className="absolute inset-0 bg-checkerboard rounded-lg opacity-20"></div>
+            <div className="w-full h-8 bg-gradient-to-r from-gray-200 via-white to-gray-200 rounded-lg"></div>
             <input
               type="range"
-              min="0"
+              min="0.1"
               max="1"
               step="0.1"
               value={alpha}
               onChange={(e) => setAlpha(Number(e.target.value))}
-              className="w-full h-8 rounded-lg appearance-none cursor-pointer slider-thumb relative z-10"
+              className="absolute top-0 w-full h-8 rounded-lg appearance-none cursor-pointer slider-thumb bg-transparent"
               style={{
                 background: `linear-gradient(to right, 
-                  transparent 0%, 
+                  ${hsvToHex(hue, saturation, value, 0.1)} 10%, 
                   ${hsvToHex(hue, saturation, value, 1)} 100%)`
               }}
             />
