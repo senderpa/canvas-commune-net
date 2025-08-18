@@ -33,8 +33,8 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     
-    const edgeThreshold = 120; // Increased for mobile - pixels from edge to start panning
-    const panSpeed = 3;
+    const edgeThreshold = 80; // Reduced from 120 - pixels from edge to start panning
+    const panSpeed = 2; // Reduced from 3 for smoother movement
     
     let deltaX = 0;
     let deltaY = 0;
