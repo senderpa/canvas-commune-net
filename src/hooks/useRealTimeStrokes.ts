@@ -55,6 +55,8 @@ export const useRealTimeStrokes = () => {
   // Add a new stroke
   const addStroke = useCallback(async (strokeInput: StrokeInput) => {
     try {
+      console.log('Adding stroke to database:', strokeInput);
+      
       const { data, error } = await supabase
         .from('strokes')
         .insert(strokeInput)
@@ -66,6 +68,7 @@ export const useRealTimeStrokes = () => {
         return null;
       }
 
+      console.log('Stroke added successfully:', data);
       return data;
     } catch (error) {
       console.error('Error adding stroke:', error);
@@ -83,12 +86,16 @@ export const useRealTimeStrokes = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'strokes' },
         (payload) => {
+          console.log('Real-time stroke received:', payload.new);
           const newStroke = {
             ...payload.new,
             points: payload.new.points as { x: number; y: number; pressure?: number }[],
             tool: payload.new.tool as 'brush' | 'eraser'
           } as Stroke;
-          setStrokes(prev => [...prev, newStroke]);
+          setStrokes(prev => {
+            console.log('Adding stroke to state, current count:', prev.length);
+            return [...prev, newStroke];
+          });
         }
       )
       .on(
