@@ -46,11 +46,17 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     return { h, s, v };
   }, []);
 
-  // Convert HSV to hex with alpha
+  // Convert HSV to hex with alpha - with validation
   const hsvToHex = useCallback((h: number, s: number, v: number, a: number = 1) => {
-    const hh = h / 60;
-    const ss = s / 100;
-    const vv = v / 100;
+    // Validate and sanitize input values
+    const safeH = Math.max(0, Math.min(360, isNaN(h) ? 0 : h));
+    const safeS = Math.max(0, Math.min(100, isNaN(s) ? 100 : s));
+    const safeV = Math.max(0, Math.min(100, isNaN(v) ? 50 : v));
+    const safeA = Math.max(0, Math.min(1, isNaN(a) ? 1 : a));
+    
+    const hh = safeH / 60;
+    const ss = safeS / 100;
+    const vv = safeV / 100;
     
     const c = vv * ss;
     const x = c * (1 - Math.abs((hh % 2) - 1));
@@ -69,8 +75,8 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     g = Math.round((g + m) * 255);
     b = Math.round((b + m) * 255);
     
-    if (a < 1) {
-      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    if (safeA < 1) {
+      return `rgba(${r}, ${g}, ${b}, ${safeA})`;
     }
     
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
@@ -89,10 +95,14 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
   // Draw color wheel - always draw on mount and when values change
   useEffect(() => {
     const canvas = wheelRef.current;
-    if (!canvas) return;
+    if (!canvas || !isOpen) return; // Only draw when picker is open
     
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    
+    // Validate and sanitize values
+    const safeHue = Math.max(0, Math.min(360, isNaN(hue) ? 0 : hue));
+    const safeValue = Math.max(0, Math.min(100, isNaN(value) ? 50 : value));
     
     const size = 200;
     const center = size / 2;
@@ -104,28 +114,37 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     // Clear canvas first
     ctx.clearRect(0, 0, size, size);
     
-    // Draw hue wheel - always visible
-    for (let angle = 0; angle < 360; angle += 1) {
-      const startAngle = (angle - 1) * Math.PI / 180;
-      const endAngle = angle * Math.PI / 180;
+    try {
+      // Draw hue wheel - always visible
+      for (let angle = 0; angle < 360; angle += 2) { // Use step of 2 for better performance
+        const startAngle = (angle - 1) * Math.PI / 180;
+        const endAngle = (angle + 1) * Math.PI / 180;
+        
+        ctx.beginPath();
+        ctx.arc(center, center, radius, startAngle, endAngle);
+        ctx.strokeStyle = `hsl(${angle}, 100%, 50%)`;
+        ctx.lineWidth = 30;
+        ctx.stroke();
+      }
+      
+      // Draw saturation gradient with safe values
+      const gradient = ctx.createRadialGradient(center, center, 0, center, center, radius - 15);
+      gradient.addColorStop(0, `hsl(${safeHue}, 0%, ${safeValue}%)`);
+      gradient.addColorStop(1, `hsl(${safeHue}, 100%, ${safeValue}%)`);
       
       ctx.beginPath();
-      ctx.arc(center, center, radius, startAngle, endAngle);
-      ctx.strokeStyle = `hsl(${angle}, 100%, 50%)`;
-      ctx.lineWidth = 30;
-      ctx.stroke();
+      ctx.arc(center, center, radius - 15, 0, 2 * Math.PI);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    } catch (error) {
+      console.error('Color wheel drawing error:', error);
+      // Fallback: draw a simple gray circle
+      ctx.beginPath();
+      ctx.arc(center, center, radius - 15, 0, 2 * Math.PI);
+      ctx.fillStyle = '#808080';
+      ctx.fill();
     }
-    
-    // Draw saturation gradient
-    const gradient = ctx.createRadialGradient(center, center, 0, center, center, radius - 15);
-    gradient.addColorStop(0, `hsl(${hue}, 0%, ${value}%)`);
-    gradient.addColorStop(1, `hsl(${hue}, 100%, ${value}%)`);
-    
-    ctx.beginPath();
-    ctx.arc(center, center, radius - 15, 0, 2 * Math.PI);
-    ctx.fillStyle = gradient;
-    ctx.fill();
-  }, [hue, value, isOpen]); // Add isOpen to force redraw when picker opens
+  }, [hue, value, isOpen]);
 
   const handleWheelTouch = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
