@@ -34,11 +34,12 @@ const Index = () => {
     y: Math.floor(Math.random() * (10000 - 512))
   }));
   
-  // Generate new random color on each page load
+  // Generate new random color on each page load (ensure it works)
   useEffect(() => {
-    const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff'];
+    const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
     const newColor = colors[Math.floor(Math.random() * colors.length)];
     setPaintState(prev => ({ ...prev, color: newColor }));
+    console.log('Random color generated:', newColor);
   }, []);
   
   const [paintState, setPaintState] = useState<PaintState>({

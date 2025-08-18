@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import './SliderStyles.css';
 
 interface MobileColorPickerProps {
   color: string;
@@ -191,25 +192,37 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
         </div>
 
         {/* Value slider */}
-        <div className="mb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Brightness:</span>
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-medium text-muted-foreground">Brightness:</span>
+            <span className="text-sm font-mono w-8 ml-auto">{value}</span>
+          </div>
+          <div className="relative">
             <input
               type="range"
               min="20"
               max="80"
               value={value}
               onChange={(e) => setValue(Number(e.target.value))}
-              className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+              className="w-full h-8 bg-gradient-to-r from-black via-gray-500 to-white rounded-lg appearance-none cursor-pointer slider-thumb"
+              style={{
+                background: `linear-gradient(to right, 
+                  hsl(${hue}, ${saturation}%, 20%) 0%, 
+                  hsl(${hue}, ${saturation}%, 50%) 50%, 
+                  hsl(${hue}, ${saturation}%, 80%) 100%)`
+              }}
             />
-            <span className="text-sm font-mono w-8">{value}</span>
           </div>
         </div>
 
         {/* Alpha slider */}
-        <div className="mb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Opacity:</span>
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-medium text-muted-foreground">Opacity:</span>
+            <span className="text-sm font-mono w-8 ml-auto">{Math.round(alpha * 100)}%</span>
+          </div>
+          <div className="relative">
+            <div className="absolute inset-0 bg-checkerboard rounded-lg opacity-20"></div>
             <input
               type="range"
               min="0"
@@ -217,9 +230,13 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
               step="0.1"
               value={alpha}
               onChange={(e) => setAlpha(Number(e.target.value))}
-              className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+              className="w-full h-8 rounded-lg appearance-none cursor-pointer slider-thumb relative z-10"
+              style={{
+                background: `linear-gradient(to right, 
+                  transparent 0%, 
+                  ${hsvToHex(hue, saturation, value, 1)} 100%)`
+              }}
             />
-            <span className="text-sm font-mono w-8">{Math.round(alpha * 100)}%</span>
           </div>
         </div>
 

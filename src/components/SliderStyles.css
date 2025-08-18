@@ -1,0 +1,62 @@
+/* Enhanced mobile slider styles */
+.slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.slider-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid hsl(var(--primary));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slider-thumb::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.slider-thumb::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+}
+
+.slider-thumb::-moz-range-thumb {
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid hsl(var(--primary));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -moz-appearance: none;
+}
+
+.slider-thumb::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.slider-thumb::-moz-range-thumb:active {
+  transform: scale(1.15);
+}
+
+.slider-thumb::-moz-range-track {
+  background: transparent;
+}
+
+.bg-checkerboard {
+  background-image: 
+    linear-gradient(45deg, #ccc 25%, transparent 25%),
+    linear-gradient(-45deg, #ccc 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ccc 75%),
+    linear-gradient(-45deg, transparent 75%, #ccc 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+}
