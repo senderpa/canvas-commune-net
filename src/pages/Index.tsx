@@ -37,6 +37,7 @@ const Index = () => {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [strokes, setStrokes] = useState<Array<{x: number, y: number, color: string, size: number}>>([]);
   const [targetPosition, setTargetPosition] = useState(initialPosition);
+  const [strokeCount, setStrokeCount] = useState(0);
   
   const handleColorChange = useCallback((color: string) => {
     setPaintState(prev => ({ ...prev, color }));
@@ -59,6 +60,7 @@ const Index = () => {
 
   const handleStroke = useCallback((worldX: number, worldY: number, color: string, size: number) => {
     setStrokes(prev => [...prev, { x: worldX, y: worldY, color, size }]);
+    setStrokeCount(prev => prev + 1);
   }, []);
 
   const handleMinimapJump = useCallback((x: number, y: number) => {
@@ -144,7 +146,7 @@ const Index = () => {
 
       {/* Player stats - bottom right */}
       <div className="absolute bottom-6 right-6 z-10">
-        <PlayerStats />
+        <PlayerStats strokeCount={strokeCount} />
       </div>
 
       {/* Info button - bottom left */}

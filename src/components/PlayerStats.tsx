@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 
-const PlayerStats = () => {
+interface PlayerStatsProps {
+  strokeCount: number;
+}
+
+const PlayerStats = ({ strokeCount }: PlayerStatsProps) => {
   const [stats, setStats] = useState({
     activePlayers: 247,
-    sessionStrokes: 0,
     ping: 42,
     saving: false
   });
@@ -44,7 +47,7 @@ const PlayerStats = () => {
         {/* Session strokes */}
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Strokes:</span>
-          <span className="font-medium">{stats.sessionStrokes}</span>
+          <span className="font-medium">{strokeCount}</span>
         </div>
 
         {/* Ping */}

@@ -155,7 +155,7 @@ const Minimap = ({ worldX, worldY, strokes, onJump, onMove }: MinimapProps) => {
       />
       
       <div className="text-xs text-muted-foreground mt-2 text-center">
-        Click to jump • {strokes.length} strokes
+        Click to jump • {strokes.length} total strokes
       </div>
     </div>
   );
