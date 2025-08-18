@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 
 interface Stroke {
@@ -31,8 +31,15 @@ const AnimationReplay = ({ strokes, isOpen, onClose }: AnimationReplayProps) => 
   const canvasSize = 800; // Larger canvas for better visibility
   const worldSize = 10000;
 
-  // Sort strokes by timestamp
-  const sortedStrokes = [...strokes].sort((a, b) => a.timestamp - b.timestamp);
+  // Sort strokes by timestamp and reset animation when strokes change
+  const sortedStrokes = useMemo(() => {
+    const sorted = [...strokes].sort((a, b) => a.timestamp - b.timestamp);
+    // Reset animation when new strokes are added to include them
+    if (sorted.length > strokes.length) {
+      setCurrentStrokeIndex(0);
+    }
+    return sorted;
+  }, [strokes]);
 
   // Draw stroke on canvas - fixed coordinate system
   const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke) => {

@@ -135,20 +135,18 @@ const WorldMinimap = ({ worldX, worldY, strokes, onClose }: WorldMinimapProps) =
     // Draw all strokes
     strokes.forEach(stroke => drawStroke(ctx, stroke));
 
-    // Draw player position with blinking dot
+    // Draw player position with blinking dot - always visible
     const playerCanvasX = ((worldX - panX) * zoom) + minimapSize / 2;
     const playerCanvasY = ((worldY - panY) * zoom) + minimapSize / 2;
 
-    if (playerCanvasX >= 0 && playerCanvasX <= minimapSize && 
-        playerCanvasY >= 0 && playerCanvasY <= minimapSize && isBlinking) {
-      ctx.beginPath();
-      ctx.arc(playerCanvasX, playerCanvasY, Math.max(2, 4 * zoom), 0, 2 * Math.PI);
-      ctx.fillStyle = '#ff0000';
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
+    // Always draw player dot, make it blink
+    ctx.beginPath();
+    ctx.arc(playerCanvasX, playerCanvasY, Math.max(3, 6 * zoom), 0, 2 * Math.PI);
+    ctx.fillStyle = isBlinking ? '#ff0000' : '#ff6666';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1, 2 * zoom);
+    ctx.stroke();
   }, [strokes, worldX, worldY, drawStroke, zoom, panX, panY, minimapSize, isBlinking]);
 
   // Update canvas when anything changes

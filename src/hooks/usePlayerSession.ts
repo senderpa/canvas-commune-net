@@ -42,7 +42,7 @@ export const usePlayerSession = () => {
 
   // Join session
   const joinSession = useCallback(async () => {
-    // If Supabase is not available, use mock mode
+    // If Supabase is not available, use mock mode with single player
     if (!isSupabaseReady || !supabase) {
       console.log('Using mock session - Supabase not configured');
       setSessionState(prev => ({
@@ -52,7 +52,7 @@ export const usePlayerSession = () => {
         playerId,
         isKicked: false,
         kickReason: null,
-        playerCount: Math.floor(Math.random() * 50) + 1, // Mock player count
+        playerCount: 1, // Show only current player in mock mode
       }));
       return true;
     }
@@ -195,10 +195,10 @@ export const usePlayerSession = () => {
     // Refresh player count
     const refreshPlayerCount = async () => {
       if (!isSupabaseReady || !supabase) {
-        // Mock player count updates
+        // Mock single player mode
         setSessionState(prev => ({
           ...prev,
-          playerCount: Math.floor(Math.random() * 50) + 1,
+          playerCount: sessionState.isConnected ? 1 : 0,
           canJoin: true,
           queuePosition: 0,
         }));
