@@ -51,15 +51,15 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
         const startTime = keyTimesRef.current.get(key) || currentTime;
         const holdDuration = (currentTime - startTime) / 1000; // seconds
         
-        // Calculate speed based on hold duration
-        // 0-10s: slow (1-3x), 10-30s: medium (3-8x), 30s+: fast (8x)
+        // Calculate speed based on hold duration - 3x faster
+        // 0-10s: slow (3-9x), 10-30s: medium (9-24x), 30s+: fast (24x)
         let speed;
         if (holdDuration < 10) {
-          speed = 1 + (holdDuration / 10) * 2; // 1 to 3
+          speed = 3 + (holdDuration / 10) * 6; // 3 to 9
         } else if (holdDuration < 30) {
-          speed = 3 + ((holdDuration - 10) / 20) * 5; // 3 to 8
+          speed = 9 + ((holdDuration - 10) / 20) * 15; // 9 to 24
         } else {
-          speed = 8; // max speed
+          speed = 24; // max speed
         }
 
         switch (key) {
@@ -232,21 +232,6 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     const ctx = canvas?.getContext('2d');
     if (!ctx) return;
 
-    // Edge panning - move viewport when painting near edges
-    const edgeThreshold = 50; // pixels from edge
-    const panSpeed = 2;
-    let panDeltaX = 0;
-    let panDeltaY = 0;
-
-    if (point.x < edgeThreshold) panDeltaX = -panSpeed;
-    if (point.x > 512 - edgeThreshold) panDeltaX = panSpeed;
-    if (point.y < edgeThreshold) panDeltaY = -panSpeed;
-    if (point.y > 512 - edgeThreshold) panDeltaY = panSpeed;
-
-    if (panDeltaX !== 0 || panDeltaY !== 0) {
-      onMove(panDeltaX, panDeltaY);
-    }
-
     // Add point to current stroke
     const worldPos = viewportToWorld(point.x, point.y);
     currentStrokeRef.current.push(worldPos);
@@ -264,7 +249,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       ctx.lineJoin = 'round';
       ctx.stroke();
     }
-  }, [getCanvasPoint, viewportToWorld, worldToViewport, paintState, onMove]);
+  }, [getCanvasPoint, viewportToWorld, worldToViewport, paintState]);
 
   const handlePointerUp = useCallback(() => {
     if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
@@ -329,14 +314,14 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
           const startTime = mouseKeyTimesRef.current.get(dir) || currentTime;
           const holdDuration = (currentTime - startTime) / 1000;
           
-          // Same acceleration as keyboard
+          // 3x faster acceleration
           let speed;
           if (holdDuration < 10) {
-            speed = 1 + (holdDuration / 10) * 2;
+            speed = 3 + (holdDuration / 10) * 6; // 3 to 9
           } else if (holdDuration < 30) {
-            speed = 3 + ((holdDuration - 10) / 20) * 5;
+            speed = 9 + ((holdDuration - 10) / 20) * 15; // 9 to 24
           } else {
-            speed = 8;
+            speed = 24; // max speed
           }
 
           switch (dir) {

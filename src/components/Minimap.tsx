@@ -1,4 +1,5 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
+import { Button } from './ui/button';
 
 interface Stroke {
   id: string;
@@ -17,6 +18,9 @@ interface MinimapProps {
 
 const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
   const size = 600; // Doubled size
   const worldSize = 1000000;
   const viewportSize = 512;
@@ -57,10 +61,10 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
     strokes.forEach(stroke => {
       if (stroke.points.length === 0) return;
       
-      // Convert world coordinates to minimap coordinates
+      // Convert world coordinates to minimap coordinates with zoom and pan
       const minimapPoints = stroke.points.map(point => ({
-        x: (point.x / worldSize) * size,
-        y: (point.y / worldSize) * size
+        x: ((point.x / worldSize) * size * zoomLevel) + panX,
+        y: ((point.y / worldSize) * size * zoomLevel) + panY
       }));
 
       // Only draw if any point is within bounds
@@ -70,15 +74,15 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
 
       if (inBounds) {
         ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
-        ctx.lineWidth = Math.max(1, stroke.size / 8); // Made strokes more visible
+        ctx.lineWidth = Math.max(2, (stroke.size / 4) * zoomLevel); // Better visibility with zoom
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
         if (minimapPoints.length === 1) {
-          // Single point - draw as larger circle
+          // Single point - draw as larger circle with zoom
           const point = minimapPoints[0];
           ctx.beginPath();
-          ctx.arc(point.x, point.y, Math.max(1, stroke.size / 12), 0, 2 * Math.PI);
+          ctx.arc(point.x, point.y, Math.max(2, (stroke.size / 6) * zoomLevel), 0, 2 * Math.PI);
           ctx.fillStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
           ctx.fill();
         } else {
@@ -93,11 +97,11 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
       }
     });
     
-    // Draw current viewport rectangle (made more visible)
-    const viewX = (worldX / worldSize) * size;
-    const viewY = (worldY / worldSize) * size;
-    const viewW = (viewportSize / worldSize) * size;
-    const viewH = (viewportSize / worldSize) * size;
+    // Draw current viewport rectangle with zoom and pan
+    const viewX = ((worldX / worldSize) * size * zoomLevel) + panX;
+    const viewY = ((worldY / worldSize) * size * zoomLevel) + panY;
+    const viewW = (viewportSize / worldSize) * size * zoomLevel;
+    const viewH = (viewportSize / worldSize) * size * zoomLevel;
     
     // Viewport outline with stronger visibility
     ctx.strokeStyle = '#ff0080';
@@ -110,23 +114,67 @@ const Minimap = ({ worldX, worldY, strokes }: MinimapProps) => {
     
     ctx.fillStyle = '#ff0080';
     ctx.beginPath();
-    ctx.arc(playerX, playerY, 5, 0, 2 * Math.PI); // Larger dot
+    ctx.arc(playerX, playerY, Math.max(3, 5 * zoomLevel), 0, 2 * Math.PI); // Scale with zoom
     ctx.fill();
     
-  }, [worldX, worldY, strokes]);
+  }, [worldX, worldY, strokes, zoomLevel, panX, panY]);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.5, Math.min(5, zoomLevel * delta));
+    setZoomLevel(newZoom);
+  }, [zoomLevel]);
+
+  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Pan to center clicked point
+    const newPanX = (size / 2) - x;
+    const newPanY = (size / 2) - y;
+    setPanX(newPanX);
+    setPanY(newPanY);
+  }, [size]);
 
   return (
     <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-xl">
-      <div className="text-xs text-muted-foreground mb-2 text-center">World Map</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs text-muted-foreground">World Map</div>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setZoomLevel(1)}
+            className="text-xs h-6 px-2"
+          >
+            Reset
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setPanX(0); setPanY(0); }}
+            className="text-xs h-6 px-2"
+          >
+            Center
+          </Button>
+        </div>
+      </div>
       
       <canvas
         ref={canvasRef}
-        className="border border-border rounded bg-white"
+        className="border border-border rounded bg-white cursor-pointer"
         style={{ width: `${size}px`, height: `${size}px` }}
+        onWheel={handleWheel}
+        onClick={handleCanvasClick}
       />
       
       <div className="text-xs text-muted-foreground mt-2 text-center">
-        {strokes.length} strokes • Live view
+        {strokes.length} strokes • Zoom: {zoomLevel.toFixed(1)}x • Scroll to zoom, click to center
       </div>
     </div>
   );
