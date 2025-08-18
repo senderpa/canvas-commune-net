@@ -180,6 +180,11 @@ const Index = () => {
             <div className="bg-muted/50 rounded-lg p-4 mb-6">
               <div className="text-sm mb-2">
                 <span className="text-primary font-semibold">{sessionState.playerCount}</span> active painters
+                {sessionState.queueCount > 0 && (
+                  <span className="text-orange-500 block">
+                    +{sessionState.queueCount} waiting in queue
+                  </span>
+                )}
               </div>
               <div className="text-xs text-muted-foreground">
                 Maximum 100 simultaneous painters
@@ -220,6 +225,7 @@ const Index = () => {
       {!sessionState.canJoin && !sessionState.isConnected && isStarted && (
         <QueueOverlay
           playerCount={sessionState.playerCount}
+          queueCount={sessionState.queueCount}
           queuePosition={sessionState.queuePosition}
           onCancel={() => setIsStarted(false)}
         />

@@ -3,11 +3,12 @@ import { Button } from '@/components/ui/button';
 
 interface QueueOverlayProps {
   playerCount: number;
+  queueCount: number;
   queuePosition: number;
   onCancel: () => void;
 }
 
-const QueueOverlay = ({ playerCount, queuePosition, onCancel }: QueueOverlayProps) => {
+const QueueOverlay = ({ playerCount, queueCount, queuePosition, onCancel }: QueueOverlayProps) => {
   const [dots, setDots] = useState('');
 
   useEffect(() => {
@@ -17,8 +18,6 @@ const QueueOverlay = ({ playerCount, queuePosition, onCancel }: QueueOverlayProp
 
     return () => clearInterval(interval);
   }, []);
-
-  const waitingCount = Math.max(0, playerCount - 100);
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
@@ -40,9 +39,12 @@ const QueueOverlay = ({ playerCount, queuePosition, onCancel }: QueueOverlayProp
             <div className="text-sm mb-2">
               <span className="text-primary font-semibold">{playerCount}</span> active painters
             </div>
-            {waitingCount > 0 && (
-              <div className="text-sm">
-                <span className="text-yellow-400 font-semibold">{waitingCount}</span> waiting in queue
+            <div className="text-sm">
+              <span className="text-yellow-400 font-semibold">{queueCount}</span> waiting in queue
+            </div>
+            {queuePosition > 0 && (
+              <div className="text-sm mt-2 text-accent-foreground">
+                You are #{queuePosition} in queue
               </div>
             )}
           </div>

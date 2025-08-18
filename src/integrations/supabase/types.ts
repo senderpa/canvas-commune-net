@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      player_queue: {
+        Row: {
+          created_at: string | null
+          id: string
+          joined_at: string | null
+          player_id: string
+          queue_position: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          joined_at?: string | null
+          player_id: string
+          queue_position: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          joined_at?: string | null
+          player_id?: string
+          queue_position?: number
+        }
+        Relationships: []
+      }
       player_sessions: {
         Row: {
           created_at: string | null

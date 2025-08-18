@@ -45,10 +45,10 @@ export const usePlayerSession = () => {
     Math.random().toString(36).substring(2) + Date.now().toString(36)
   );
 
-  // Join session
+  // Join session (only called when clicking "Start Painting")
   const joinSession = useCallback(async () => {
     try {
-      // Check current player count
+      // Check current active player count
       const { data: sessions, error: countError } = await supabase
         .from('player_sessions')
         .select('*')
@@ -60,16 +60,42 @@ export const usePlayerSession = () => {
       }
 
       if (sessions && sessions.length >= MAX_PLAYERS) {
+        // Room is full - add to queue
+        const { data: queueData, error: queueCountError } = await supabase
+          .from('player_queue')
+          .select('*')
+          .order('queue_position', { ascending: false })
+          .limit(1);
+
+        if (queueCountError) {
+          console.error('Error checking queue:', queueCountError);
+          return false;
+        }
+
+        const nextPosition = (queueData?.[0]?.queue_position || 0) + 1;
+
+        const { error: queueError } = await supabase
+          .from('player_queue')
+          .insert({
+            player_id: playerId,
+            queue_position: nextPosition
+          });
+
+        if (queueError) {
+          console.error('Error joining queue:', queueError);
+          return false;
+        }
+
         setSessionState(prev => ({
           ...prev,
           canJoin: false,
-          queuePosition: 1,
+          queuePosition: nextPosition,
           kickReason: 'full'
         }));
         return false;
       }
 
-      // Join the session
+      // Room has space - join directly
       const { error: insertError } = await supabase
         .from('player_sessions')
         .insert({
@@ -106,8 +132,15 @@ export const usePlayerSession = () => {
   // Leave session
   const leaveSession = useCallback(async () => {
     try {
+      // Remove from active sessions
       await supabase
         .from('player_sessions')
+        .delete()
+        .eq('player_id', playerId);
+
+      // Remove from queue if present
+      await supabase
+        .from('player_queue')
         .delete()
         .eq('player_id', playerId);
 
@@ -179,40 +212,56 @@ export const usePlayerSession = () => {
     let cleanupInterval: NodeJS.Timeout;
     let subscription: any = null;
 
-    // Subscribe to player sessions changes
-    subscription = supabase
-      .channel('player_sessions')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'player_sessions' },
-        (payload) => {
-          // Refresh player count
-          refreshPlayerCount();
-        }
-      )
-      .subscribe();
-
-    // Refresh player count
+    // Refresh player count and queue
     const refreshPlayerCount = async () => {
       try {
-        const { data: sessions, error } = await supabase
+        // Get active players count
+        const { data: sessions, error: sessionsError } = await supabase
           .from('player_sessions')
           .select('*')
           .eq('is_active', true);
 
-        if (!error && sessions) {
-          const count = sessions.length;
+        // Get queue count  
+        const { data: queue, error: queueError } = await supabase
+          .from('player_queue')
+          .select('*')
+          .order('queue_position', { ascending: true });
+
+        if (!sessionsError && !queueError) {
+          const activeCount = sessions?.length || 0;
+          const queueCount = queue?.length || 0;
+          
           setSessionState(prev => ({
             ...prev,
-            playerCount: count,
-            canJoin: count < MAX_PLAYERS,
-            queuePosition: Math.max(0, count - MAX_PLAYERS + 1),
+            playerCount: activeCount,
+            queueCount: queueCount,
+            canJoin: activeCount < MAX_PLAYERS,
+            queuePosition: queue?.findIndex(q => q.player_id === playerId) + 1 || 0,
           }));
         }
       } catch (error) {
-        console.error('Error refreshing player count:', error);
+        console.error('Error refreshing counts:', error);
       }
     };
+
+    // Subscribe to player sessions and queue changes
+    subscription = supabase
+      .channel('multiplayer-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'player_sessions' },
+        (payload) => {
+          refreshPlayerCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'player_queue' },
+        (payload) => {
+          refreshPlayerCount();
+        }
+      )
+      .subscribe();
 
     // Initial player count
     refreshPlayerCount();
