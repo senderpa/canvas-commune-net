@@ -29,7 +29,7 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
           <div className="space-y-2">
             <h4 className="font-medium">The Canvas</h4>
             <p className="text-muted-foreground leading-relaxed">
-              A massive 3162 × 3162 pixel (10 million pixels total) collaborative artwork where anyone can paint anonymously. 
+              A massive 10,000 × 10,000 pixel (100 million pixels total) collaborative artwork where up to 100 painters can create simultaneously. 
               Your creations become part of a living, evolving masterpiece.
             </p>
           </div>
@@ -37,11 +37,23 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
           <div className="space-y-2">
             <h4 className="font-medium">How to Paint</h4>
             <ul className="text-muted-foreground space-y-1 text-xs">
-              <li>• Paint near screen edges to move around the canvas</li>
+              <li>• Paint near screen edges to automatically move around the canvas</li>
               <li>• Click/tap and drag to paint with the selected brush</li>
-              <li>• Choose colors with the color wheel on the left</li>
-              <li>• Switch between brush and eraser tools</li>
-              <li>• Adjust brush size from 1-10 pixels</li>
+              <li>• Choose colors with the color picker</li>
+              <li>• Switch between brush and eraser tools in the toolbar</li>
+              <li>• Adjust brush size from 1-20 pixels</li>
+              <li>• Sessions last 30 minutes with 2 minute inactivity timeout</li>
+            </ul>
+          </div>
+          
+          <div className="space-y-2">
+            <h4 className="font-medium">Rules & Guidelines</h4>
+            <ul className="text-muted-foreground space-y-1 text-xs">
+              <li>• Maximum 100 simultaneous painters</li>
+              <li>• Queue system when room is full</li>
+              <li>• All artwork is public and permanent</li>
+              <li>• No login required - completely anonymous</li>
+              <li>• Real-time collaboration with other painters</li>
             </ul>
           </div>
           
@@ -55,7 +67,7 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
           
           <div className="border-t border-border pt-4 text-xs text-muted-foreground">
             <p>
-              Questions? Contact: <span className="text-creative-primary">hello@multipainter.art</span>
+              Questions? Contact: <span className="text-creative-primary">help@Multipainter.com</span>
             </p>
             <p className="mt-1">
               No personal data is collected. Your position and UI preferences are stored locally only.
