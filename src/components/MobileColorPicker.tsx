@@ -14,6 +14,7 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
   const [saturation, setSaturation] = useState(100);
   const [value, setValue] = useState(50);
   const [alpha, setAlpha] = useState(1);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [recentColors, setRecentColors] = useState<string[]>(() => {
     const saved = localStorage.getItem('recent-colors');
     return saved ? JSON.parse(saved) : ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff'];
@@ -97,24 +98,28 @@ const MobileColorPicker = ({ color, onColorChange, isOpen, onClose }: MobileColo
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }, []);
 
-  // Initialize HSV from current color - only when picker opens or color changes significantly
+  // Initialize HSV from current color - ONLY when picker first opens
   useEffect(() => {
-    if (color && isOpen) {
-      const { h, s, v } = hexToHsv(color);
-      // Only update if this is a significantly different color (not just alpha change)
-      const currentColor = hsvToHex(hue, saturation, value, 1);
-      const newColorHex = color.startsWith('rgba(') ? 
-        color.replace(/rgba?\((\d+),\s*(\d+),\s*(\d+).*\)/, (_, r, g, b) => 
-          `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`)
-        : color;
-      
-      if (newColorHex !== currentColor) {
+    if (isOpen && !isInitialized) {
+      if (color) {
+        const { h, s, v } = hexToHsv(color);
         setHue(h);
         setSaturation(s);
         setValue(v);
+        
+        // Extract alpha if it's rgba format
+        if (color.startsWith('rgba(')) {
+          const match = color.match(/rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+          if (match) {
+            setAlpha(parseFloat(match[1]));
+          }
+        }
       }
+      setIsInitialized(true);
+    } else if (!isOpen) {
+      setIsInitialized(false);
     }
-  }, [color, isOpen, hexToHsv, hue, saturation, value, hsvToHex]);
+  }, [isOpen, isInitialized, color, hexToHsv]);
 
   // Draw color wheel - always draw on mount and when values change
   useEffect(() => {
