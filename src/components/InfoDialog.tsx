@@ -4,6 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { X } from 'lucide-react';
 
 interface InfoDialogProps {
   open: boolean;
@@ -13,30 +14,36 @@ interface InfoDialogProps {
 const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-creative-primary to-creative-secondary rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <DialogContent className="max-w-sm animate-scale-in data-[state=closed]:animate-scale-out">
+        <DialogHeader className="relative">
+          <button
+            onClick={() => onOpenChange(false)}
+            className="absolute -top-2 -right-2 w-8 h-8 bg-muted hover:bg-muted/80 rounded-full flex items-center justify-center transition-colors z-10 border border-border"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <DialogTitle className="flex items-center gap-2 pr-6">
+            <div className="w-6 h-6 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
             </div>
-            About MultipainteR
+            MultiPainteR Info
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 text-sm">
-          <div className="space-y-2">
-            <h4 className="font-medium">The Canvas</h4>
-            <p className="text-muted-foreground leading-relaxed">
+        <div className="space-y-3 text-sm">
+          <div className="space-y-1">
+            <h4 className="font-medium text-sm">The Canvas</h4>
+            <p className="text-muted-foreground leading-relaxed text-xs">
               A massive 10,000 × 10,000 pixel (100 million pixels total) collaborative artwork where up to 100 painters can create simultaneously. 
               Your creations become part of a living, evolving masterpiece.
             </p>
           </div>
           
-          <div className="space-y-2">
-            <h4 className="font-medium">How to Paint</h4>
-            <ul className="text-muted-foreground space-y-1 text-xs">
+          <div className="space-y-1">
+            <h4 className="font-medium text-sm">How to Paint</h4>
+            <ul className="text-muted-foreground space-y-0.5 text-xs">
               <li>• Paint near screen edges to automatically move around the canvas</li>
               <li>• Click/tap and drag to paint with the selected brush</li>
               <li>• Choose colors with the color picker</li>
@@ -46,9 +53,9 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
             </ul>
           </div>
           
-          <div className="space-y-2">
-            <h4 className="font-medium">Rules & Guidelines</h4>
-            <ul className="text-muted-foreground space-y-1 text-xs">
+          <div className="space-y-1">
+            <h4 className="font-medium text-sm">Rules & Guidelines</h4>
+            <ul className="text-muted-foreground space-y-0.5 text-xs">
               <li>• Maximum 100 simultaneous painters</li>
               <li>• Queue system when room is full</li>
               <li>• All artwork is public and permanent</li>
@@ -57,17 +64,9 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
             </ul>
           </div>
           
-          <div className="space-y-2">
-            <h4 className="font-medium">Anonymous & Public</h4>
-            <p className="text-muted-foreground leading-relaxed">
-              No login required. All artwork is public and non-censored. 
-              Your strokes are saved automatically and visible to all participants in real-time.
-            </p>
-          </div>
-          
-          <div className="border-t border-border pt-4 text-xs text-muted-foreground">
+          <div className="border-t border-border pt-3 text-xs text-muted-foreground">
             <p>
-              Questions? Contact: <span className="text-creative-primary">help@Multipainter.com</span>
+              Questions? Contact: <span className="text-primary">help@Multipainter.com</span>
             </p>
             <p className="mt-1">
               No personal data is collected. Your position and UI preferences are stored locally only.
