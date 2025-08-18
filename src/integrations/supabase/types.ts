@@ -125,6 +125,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      promote_from_queue: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
