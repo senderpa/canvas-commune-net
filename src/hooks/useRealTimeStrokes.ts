@@ -57,6 +57,18 @@ export const useRealTimeStrokes = () => {
     try {
       console.log('Adding stroke to database:', strokeInput);
       
+      // Add stroke optimistically to local state immediately
+      const optimisticStroke: Stroke = {
+        id: `temp-${Date.now()}-${Math.random()}`, // Temporary ID
+        ...strokeInput,
+        created_at: new Date().toISOString()
+      };
+      
+      setStrokes(prev => {
+        console.log('Adding optimistic stroke to state, current count:', prev.length);
+        return [...prev, optimisticStroke];
+      });
+      
       const { data, error } = await supabase
         .from('strokes')
         .insert(strokeInput)
@@ -65,10 +77,18 @@ export const useRealTimeStrokes = () => {
 
       if (error) {
         console.error('Error adding stroke:', error);
+        // Remove the optimistic stroke on error
+        setStrokes(prev => prev.filter(s => s.id !== optimisticStroke.id));
         return null;
       }
 
       console.log('Stroke added successfully:', data);
+      
+      // Replace optimistic stroke with real stroke when database confirms
+      setStrokes(prev => prev.map(s => 
+        s.id === optimisticStroke.id ? { ...data, points: data.points as { x: number; y: number; pressure?: number }[], tool: data.tool as 'brush' | 'eraser' } as Stroke : s
+      ));
+      
       return data;
     } catch (error) {
       console.error('Error adding stroke:', error);
@@ -92,8 +112,15 @@ export const useRealTimeStrokes = () => {
             points: payload.new.points as { x: number; y: number; pressure?: number }[],
             tool: payload.new.tool as 'brush' | 'eraser'
           } as Stroke;
+          
+          // Only add if not already in state (avoid duplicates from optimistic updates)
           setStrokes(prev => {
-            console.log('Adding stroke to state, current count:', prev.length);
+            const exists = prev.find(s => s.id === newStroke.id);
+            if (exists) {
+              console.log('Stroke already exists (optimistic), skipping real-time add');
+              return prev;
+            }
+            console.log('Adding real-time stroke to state, current count:', prev.length);
             return [...prev, newStroke];
           });
         }
