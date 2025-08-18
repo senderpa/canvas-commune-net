@@ -187,8 +187,12 @@ const Index = () => {
 
   return (
     <div 
-      className="min-h-screen w-full overflow-hidden"
-      style={{ background: 'var(--background-gradient)' }}
+      className="min-h-screen w-full overflow-hidden fixed inset-0"
+      style={{ 
+        background: 'var(--background-gradient)',
+        touchAction: 'none',
+        overscrollBehavior: 'none'
+      }}
     >
       {/* Main canvas area - always centered */}
       <div className="absolute inset-0 flex items-center justify-center">

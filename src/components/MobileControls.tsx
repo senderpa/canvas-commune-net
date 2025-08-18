@@ -7,11 +7,13 @@ interface MobileControlsProps {
 const MobileControls = ({ onMove }: MobileControlsProps) => {
   const [activeDirection, setActiveDirection] = useState<string | null>(null);
 
-  const handleTouchStart = useCallback((direction: string) => {
+  const handleTouchStart = useCallback((e: React.TouchEvent | React.MouseEvent, direction: string) => {
+    e.preventDefault();
     setActiveDirection(direction);
   }, []);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
     setActiveDirection(null);
   }, []);
 
@@ -56,12 +58,13 @@ const MobileControls = ({ onMove }: MobileControlsProps) => {
           : 'bg-card/80 backdrop-blur-sm hover:bg-card/90'
         }
       `}
-      onTouchStart={() => handleTouchStart(direction)}
+      onTouchStart={(e) => handleTouchStart(e, direction)}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
-      onMouseDown={() => handleTouchStart(direction)}
+      onMouseDown={(e) => handleTouchStart(e, direction)}
       onMouseUp={handleTouchEnd}
       onMouseLeave={handleTouchEnd}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {children}
     </button>

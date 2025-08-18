@@ -277,6 +277,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     };
 
     const animationRef = useRef<number>();
+    const isMovingRef = useRef(false);
 
     const getMovement = (dir: string) => {
       switch (dir) {
@@ -288,10 +289,15 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
       }
     };
 
-    const startMovement = () => {
+    const startMovement = (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      if (isMovingRef.current) return;
+      
+      isMovingRef.current = true;
       const movement = getMovement(direction);
       
       const move = () => {
+        if (!isMovingRef.current) return;
         onMove(movement.x, movement.y);
         animationRef.current = requestAnimationFrame(move);
       };
@@ -300,6 +306,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
     };
 
     const stopMovement = () => {
+      isMovingRef.current = false;
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = undefined;
@@ -313,7 +320,9 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
         onMouseLeave={stopMovement}
         onTouchStart={startMovement}
         onTouchEnd={stopMovement}
-        className="absolute w-10 h-10 bg-card/80 border border-border rounded-lg hover:bg-card transition-all duration-200 flex items-center justify-center shadow-lg select-none"
+        onTouchCancel={stopMovement}
+        onContextMenu={(e) => e.preventDefault()}
+        className="absolute w-10 h-10 bg-card/80 border border-border rounded-lg hover:bg-card transition-all duration-200 flex items-center justify-center shadow-lg select-none touch-manipulation"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icons[direction as keyof typeof icons]} />

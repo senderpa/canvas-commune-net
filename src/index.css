@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent mobile scrolling and overscroll */
+body, html {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* MultipainteR Design System - Professional Creative Dark Theme
 All colors MUST be HSL for consistency.
 */
