@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase-setup';
+import { supabase, isSupabaseReady } from '@/lib/supabase-client';
 
 export interface PlayerSession {
   id: string;
@@ -42,6 +42,21 @@ export const usePlayerSession = () => {
 
   // Join session
   const joinSession = useCallback(async () => {
+    // If Supabase is not available, use mock mode
+    if (!isSupabaseReady || !supabase) {
+      console.log('Using mock session - Supabase not configured');
+      setSessionState(prev => ({
+        ...prev,
+        isConnected: true,
+        canJoin: true,
+        playerId,
+        isKicked: false,
+        kickReason: null,
+        playerCount: Math.floor(Math.random() * 50) + 1, // Mock player count
+      }));
+      return true;
+    }
+
     try {
       // Check current player count
       const { data: sessions, error: countError } = await supabase
@@ -97,6 +112,16 @@ export const usePlayerSession = () => {
 
   // Leave session
   const leaveSession = useCallback(async () => {
+    if (!isSupabaseReady || !supabase) {
+      setSessionState(prev => ({
+        ...prev,
+        isConnected: false,
+        canJoin: false,
+        playerId: null,
+      }));
+      return;
+    }
+
     try {
       await supabase
         .from('player_sessions')
@@ -116,7 +141,7 @@ export const usePlayerSession = () => {
 
   // Update activity
   const updateActivity = useCallback(async () => {
-    if (!sessionState.isConnected) return;
+    if (!sessionState.isConnected || !isSupabaseReady || !supabase) return;
 
     try {
       await supabase
@@ -130,7 +155,7 @@ export const usePlayerSession = () => {
 
   // Update position
   const updatePosition = useCallback(async (x: number, y: number) => {
-    if (!sessionState.isConnected) return;
+    if (!sessionState.isConnected || !isSupabaseReady || !supabase) return;
 
     try {
       await supabase
@@ -150,22 +175,36 @@ export const usePlayerSession = () => {
   useEffect(() => {
     let activityInterval: NodeJS.Timeout;
     let cleanupInterval: NodeJS.Timeout;
+    let subscription: any = null;
 
-    // Subscribe to player sessions changes
-    const subscription = supabase
-      .channel('player_sessions')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'player_sessions' },
-        (payload) => {
-          // Refresh player count
-          refreshPlayerCount();
-        }
-      )
-      .subscribe();
+    // Subscribe to player sessions changes (only if Supabase is available)
+    if (isSupabaseReady && supabase) {
+      subscription = supabase
+        .channel('player_sessions')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'player_sessions' },
+          (payload) => {
+            // Refresh player count
+            refreshPlayerCount();
+          }
+        )
+        .subscribe();
+    }
 
     // Refresh player count
     const refreshPlayerCount = async () => {
+      if (!isSupabaseReady || !supabase) {
+        // Mock player count updates
+        setSessionState(prev => ({
+          ...prev,
+          playerCount: Math.floor(Math.random() * 50) + 1,
+          canJoin: true,
+          queuePosition: 0,
+        }));
+        return;
+      }
+
       try {
         const { data: sessions, error } = await supabase
           .from('player_sessions')
@@ -196,6 +235,8 @@ export const usePlayerSession = () => {
 
     // Set up cleanup interval
     cleanupInterval = setInterval(async () => {
+      if (!isSupabaseReady || !supabase) return; // Skip cleanup if Supabase not available
+      
       try {
         // Clean up old sessions
         const tenMinutesAgo = new Date(Date.now() - SESSION_TIMEOUT).toISOString();
@@ -233,7 +274,7 @@ export const usePlayerSession = () => {
     }, 10000); // Every 10 seconds
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) subscription.unsubscribe();
       if (activityInterval) clearInterval(activityInterval);
       if (cleanupInterval) clearInterval(cleanupInterval);
     };
