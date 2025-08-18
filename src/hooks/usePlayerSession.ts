@@ -229,6 +229,46 @@ export const usePlayerSession = () => {
     let cleanupInterval: NodeJS.Timeout;
     let subscription: any = null;
 
+    // Cleanup function to remove current player
+    const cleanup = async () => {
+      try {
+        await supabase
+          .from('player_sessions')
+          .delete()
+          .eq('player_id', playerId);
+        
+        await supabase
+          .from('player_queue')
+          .delete()
+          .eq('player_id', playerId);
+        
+        console.log('Cleaned up player session:', playerId);
+      } catch (error) {
+        console.error('Cleanup error:', error);
+      }
+    };
+
+    // Add cleanup listeners for page unload
+    const handleBeforeUnload = () => {
+      // Use sendBeacon for reliable cleanup on page unload
+      const data = JSON.stringify({ player_id: playerId });
+      navigator.sendBeacon('/api/cleanup-player', data);
+      
+      // Also try direct cleanup
+      cleanup();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && sessionState.isConnected) {
+        cleanup();
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     // Refresh player count and queue
     const refreshPlayerCount = async () => {
       try {
@@ -247,6 +287,8 @@ export const usePlayerSession = () => {
         if (!sessionsError && !queueError) {
           const activeCount = sessions?.length || 0;
           const queueCount = queue?.length || 0;
+          
+          console.log('Current active players:', activeCount, 'Queue:', queueCount);
           
           setSessionState(prev => ({
             ...prev,
@@ -268,6 +310,7 @@ export const usePlayerSession = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'player_sessions' },
         (payload) => {
+          console.log('Player session change:', payload);
           refreshPlayerCount();
         }
       )
@@ -275,6 +318,7 @@ export const usePlayerSession = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'player_queue' },
         (payload) => {
+          console.log('Queue change:', payload);
           refreshPlayerCount();
         }
       )
@@ -288,7 +332,7 @@ export const usePlayerSession = () => {
       activityInterval = setInterval(updateActivity, 30000); // Every 30 seconds
     }
 
-    // Set up cleanup interval
+    // Set up cleanup interval - more aggressive cleanup
     cleanupInterval = setInterval(async () => {
       try {
         // Use the cleanup function from the database
@@ -318,12 +362,23 @@ export const usePlayerSession = () => {
       } catch (error) {
         console.error('Cleanup error:', error);
       }
-    }, 30000); // Every 30 seconds
+    }, 15000); // Every 15 seconds for more responsive cleanup
 
     return () => {
+      // Cleanup subscriptions
       if (subscription) subscription.unsubscribe();
       if (activityInterval) clearInterval(activityInterval);
       if (cleanupInterval) clearInterval(cleanupInterval);
+      
+      // Remove event listeners
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      
+      // Final cleanup
+      if (sessionState.isConnected) {
+        cleanup();
+      }
     };
   }, [sessionState.isConnected, updateActivity, playerId]);
 

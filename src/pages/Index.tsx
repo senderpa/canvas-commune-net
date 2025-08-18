@@ -34,18 +34,16 @@ const Index = () => {
     y: Math.floor(Math.random() * (10000 - 512))
   }));
   
-  // Generate new random color on each page load (desktop only)
+  // Generate new random color on each page load
   useEffect(() => {
-    if (!isMobile) {
-      const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
-      const newColor = colors[Math.floor(Math.random() * colors.length)];
-      setPaintState(prev => ({ ...prev, color: newColor }));
-      console.log('Random color generated:', newColor);
-    }
-  }, [isMobile]);
+    const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
+    const newColor = colors[Math.floor(Math.random() * colors.length)];
+    setPaintState(prev => ({ ...prev, color: newColor }));
+    console.log('Random color generated:', newColor);
+  }, []);
   
   const [paintState, setPaintState] = useState<PaintState>({
-    color: isMobile ? '#000000' : '#ff0080', // Black for mobile, will be overridden by useEffect on desktop
+    color: '#ff0080', // Will be overridden by useEffect
     tool: 'brush',
     size: 3,
     ...initialPosition
