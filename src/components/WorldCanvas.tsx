@@ -270,8 +270,8 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
           className="border-2 border-border rounded-lg shadow-2xl cursor-crosshair max-w-full max-h-[70vh] w-auto h-auto"
           style={{ 
             aspectRatio: '1 / 1',
-            maxWidth: 'min(512px, calc(100vw - 2rem), calc(100vh - 200px))',
-            maxHeight: 'min(512px, calc(100vw - 2rem), calc(100vh - 200px))'
+            maxWidth: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))',
+            maxHeight: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))'
           }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -279,8 +279,8 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
           onPointerLeave={handlePointerUp}
         />
 
-        {/* Mobile stats under canvas */}
-        <div className="absolute -bottom-6 left-0 right-0 md:hidden">
+        {/* Stats under canvas for both mobile and desktop */}
+        <div className="absolute -bottom-8 left-0 right-0">
           <div className="flex items-center justify-between text-xs">
             <div className="text-muted-foreground">
               World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
@@ -301,11 +301,6 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
               </div>
             </div>
           </div>
-        </div>
-        
-        {/* Desktop coordinates display */}
-        <div className="absolute -bottom-4 left-0 text-xs text-muted-foreground hidden md:block">
-          World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
         </div>
       </div>
     </div>

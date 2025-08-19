@@ -320,14 +320,6 @@ const Index = () => {
                 />
               </div>
 
-              {/* Player stats - bottom left */}
-              <div className="absolute bottom-6 left-6 z-10">
-                <PlayerStats 
-                  strokeCount={strokes.length} 
-                  playerCount={sessionState.playerCount}
-                  isConnected={sessionState.isConnected}
-                />
-              </div>
             </>
           )}
 

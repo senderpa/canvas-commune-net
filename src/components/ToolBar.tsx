@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Brush, Play, Info, X } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ToolBarProps {
   paintState: PaintState;
@@ -16,6 +17,7 @@ interface ToolBarProps {
 }
 
 const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, onMapOpen, strokeCount, onColorChange, onSizeChange }: ToolBarProps) => {
+  const isMobile = useIsMobile();
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [autoMove, setAutoMove] = useState<{ [key: string]: boolean }>({ size: false, brightness: false, opacity: false });
   const [clickCounts, setClickCounts] = useState<{ [key: string]: number }>({});
@@ -122,8 +124,8 @@ const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, onMapOpen,
         <div className="flex items-center gap-4">
           {/* Brush button with color indicator */}
           <button
-            onClick={() => setIsColorPickerOpen(true)}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors p-2 rounded hover:bg-muted"
+            onClick={isMobile ? () => setIsColorPickerOpen(true) : undefined}
+            className={`flex items-center gap-2 text-sm text-muted-foreground p-2 rounded ${isMobile ? 'hover:text-foreground transition-colors hover:bg-muted cursor-pointer' : 'cursor-default'}`}
           >
             <div className="relative">
               <Brush className="w-4 h-4" />
