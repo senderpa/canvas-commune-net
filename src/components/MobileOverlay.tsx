@@ -105,14 +105,6 @@ const MobileOverlay = ({
         </div>
       </div>
 
-      {/* Player Stats - Bottom Left */}
-      <div className="absolute bottom-20 left-4 z-20">
-        <PlayerStats 
-          strokeCount={strokeCount} 
-          playerCount={playerCount}
-          isConnected={isConnected}
-        />
-      </div>
 
       {/* Mobile controls */}
       <div className="absolute bottom-4 right-4 z-20">

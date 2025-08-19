@@ -286,6 +286,9 @@ const Index = () => {
               strokes={canvasStrokes}
               onMove={handleMove}
               onStroke={handleStroke}
+              strokeCount={strokes.length}
+              playerCount={sessionState.playerCount}
+              isConnected={sessionState.isConnected}
             />
           </div>
 

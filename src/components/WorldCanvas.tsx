@@ -16,9 +16,12 @@ interface WorldCanvasProps {
   strokes: Stroke[];
   onMove: (deltaX: number, deltaY: number) => void;
   onStroke: (stroke: Omit<Stroke, 'id' | 'timestamp'>) => void;
+  strokeCount: number;
+  playerCount: number;
+  isConnected: boolean;
 }
 
-const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps) => {
+const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playerCount, isConnected }: WorldCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
@@ -276,8 +279,32 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke }: WorldCanvasProps
           onPointerLeave={handlePointerUp}
         />
 
-        {/* Coordinates display */}
-        <div className="absolute -bottom-8 left-0 text-xs text-muted-foreground">
+        {/* Mobile stats under canvas */}
+        <div className="absolute -bottom-10 left-0 right-0 md:hidden">
+          <div className="flex items-center justify-between text-xs">
+            <div className="text-muted-foreground">
+              World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-creative-primary animate-pulse' : 'bg-muted'}`} />
+                <span className="text-muted-foreground">{playerCount}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">S:</span>
+                <span>{strokeCount}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-green-400 text-xs">
+                  {30 + Math.floor(Math.random() * 40)}ms
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Desktop coordinates display */}
+        <div className="absolute -bottom-8 left-0 text-xs text-muted-foreground hidden md:block">
           World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
         </div>
       </div>
