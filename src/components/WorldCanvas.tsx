@@ -280,7 +280,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
         />
 
         {/* Mobile stats under canvas */}
-        <div className="absolute -bottom-10 left-0 right-0 md:hidden">
+        <div className="absolute -bottom-6 left-0 right-0 md:hidden">
           <div className="flex items-center justify-between text-xs">
             <div className="text-muted-foreground">
               World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
@@ -304,7 +304,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
         </div>
         
         {/* Desktop coordinates display */}
-        <div className="absolute -bottom-8 left-0 text-xs text-muted-foreground hidden md:block">
+        <div className="absolute -bottom-4 left-0 text-xs text-muted-foreground hidden md:block">
           World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
         </div>
       </div>
