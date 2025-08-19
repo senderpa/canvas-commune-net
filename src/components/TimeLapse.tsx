@@ -22,8 +22,6 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [isHighscoreOpen, setIsHighscoreOpen] = useState(false);
-  const [initialDistance, setInitialDistance] = useState(0);
-  const [initialZoom, setInitialZoom] = useState(0.08);
 
   const canvasSize = 800;
   const worldSize = 10000;
@@ -167,19 +165,6 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
 
   // Mouse/touch handlers for pan and zoom
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    if ('touches' in e && e.touches.length === 2) {
-      // Two finger touch - prepare for pinch zoom
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      const distance = Math.sqrt(
-        Math.pow(touch2.clientX - touch1.clientX, 2) + 
-        Math.pow(touch2.clientY - touch1.clientY, 2)
-      );
-      setInitialDistance(distance);
-      setInitialZoom(zoom);
-      return;
-    }
-    
     setIsDragging(true);
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
@@ -187,22 +172,6 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
   };
 
   const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if ('touches' in e && e.touches.length === 2 && initialDistance > 0) {
-      // Two finger pinch zoom
-      e.preventDefault();
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      const currentDistance = Math.sqrt(
-        Math.pow(touch2.clientX - touch1.clientX, 2) + 
-        Math.pow(touch2.clientY - touch1.clientY, 2)
-      );
-      
-      const zoomFactor = currentDistance / initialDistance;
-      const newZoom = Math.max(0.05, Math.min(10, initialZoom * zoomFactor));
-      setZoom(newZoom);
-      return;
-    }
-    
     if (!isDragging) return;
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -219,7 +188,6 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
 
   const handleMouseUp = () => {
     setIsDragging(false);
-    setInitialDistance(0);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -350,7 +318,7 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
         </div>
         
         <div className="text-xs text-muted-foreground text-center mt-3">
-          🖱️ Scroll to zoom • Drag to pan • 📱 Pinch to zoom on mobile • Watch the world evolve stroke by stroke
+          🖱️ Scroll to zoom • Drag to pan • Watch the world evolve stroke by stroke
         </div>
 
         {sortedStrokes.length === 0 && (
