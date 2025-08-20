@@ -26,14 +26,15 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
   const [zoom, setZoom] = useState(0.06); // Show full world (10000 pixels in 600px canvas = 0.06)
   const [panX, setPanX] = useState(5000); // Center of world (10000/2)
   const [panY, setPanY] = useState(5000); // Center of world (10000/2)
-  
-  // Animation targets for smooth transitions
-  const [targetZoom, setTargetZoom] = useState(0.06);
-  const [targetPanX, setTargetPanX] = useState(5000);
-  const [targetPanY, setTargetPanY] = useState(5000);
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [isBlinking, setIsBlinking] = useState(true);
+  
+  // Animation state
+  const animationRef = useRef<number>();
+  const startValuesRef = useRef({ zoom: 0.06, panX: 5000, panY: 5000 });
+  const targetValuesRef = useRef({ zoom: 0.06, panX: 5000, panY: 5000 });
+  const animationStartTimeRef = useRef(0);
   
   // Get other players' positions
   const { otherPlayers } = useOtherPlayers(currentPlayerId);
@@ -44,31 +45,49 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
   // Blinking animation for player position - higher frequency when actively painting
   const [isActivelyPainting, setIsActivelyPainting] = useState(false);
   
-  // Smooth animation loop for zoom and pan
-  useEffect(() => {
-    const animateToTarget = () => {
-      const lerpFactor = 0.1; // Smooth lerp speed
+  // Smooth fly-in animation function
+  const animateToTarget = useCallback((targetZoom: number, targetPanX: number, targetPanY: number) => {
+    // Cancel any existing animation
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    
+    // Store start values
+    startValuesRef.current = { zoom, panX, panY };
+    targetValuesRef.current = { zoom: targetZoom, panX: targetPanX, panY: targetPanY };
+    animationStartTimeRef.current = performance.now();
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - animationStartTimeRef.current;
+      const duration = 800; // 800ms animation
+      const progress = Math.min(elapsed / duration, 1);
       
-      setZoom(current => {
-        const diff = targetZoom - current;
-        return Math.abs(diff) < 0.001 ? targetZoom : current + diff * lerpFactor;
-      });
+      // Smooth easing function (ease-out)
+      const easeOut = 1 - Math.pow(1 - progress, 3);
       
-      setPanX(current => {
-        const diff = targetPanX - current;
-        return Math.abs(diff) < 1 ? targetPanX : current + diff * lerpFactor;
-      });
+      const startVals = startValuesRef.current;
+      const targetVals = targetValuesRef.current;
       
-      setPanY(current => {
-        const diff = targetPanY - current;
-        return Math.abs(diff) < 1 ? targetPanY : current + diff * lerpFactor;
-      });
+      setZoom(startVals.zoom + (targetVals.zoom - startVals.zoom) * easeOut);
+      setPanX(startVals.panX + (targetVals.panX - startVals.panX) * easeOut);
+      setPanY(startVals.panY + (targetVals.panY - startVals.panY) * easeOut);
       
-      requestAnimationFrame(animateToTarget);
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate);
+      }
     };
     
-    requestAnimationFrame(animateToTarget);
-  }, [targetZoom, targetPanX, targetPanY]);
+    animationRef.current = requestAnimationFrame(animate);
+  }, [zoom, panX, panY]);
+  
+  // Cleanup animation on unmount
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
   
   useEffect(() => {
     // Check if player moved recently (indicating active painting)
@@ -296,9 +315,7 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
               size="sm"
               variant="outline"
               onClick={() => {
-                setTargetZoom(0.06);
-                setTargetPanX(worldSize / 2);
-                setTargetPanY(worldSize / 2);
+                animateToTarget(0.06, worldSize / 2, worldSize / 2);
               }}
             >
               Fit World
@@ -307,9 +324,7 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
               size="sm"
               variant="outline"
               onClick={() => {
-                setTargetPanX(lastStrokeX);
-                setTargetPanY(lastStrokeY);
-                setTargetZoom(2);
+                animateToTarget(2, lastStrokeX, lastStrokeY);
               }}
             >
               Go to Me
