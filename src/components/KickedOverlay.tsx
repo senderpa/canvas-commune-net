@@ -4,7 +4,7 @@ import EmojiPicker from './EmojiPicker';
 import { useHighscores } from '@/hooks/useHighscores';
 
 interface KickedOverlayProps {
-  reason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | null;
+  reason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | 'collision' | null;
   onRestart: () => void;
   sessionStrokeCount?: number;
   playerId?: string;
@@ -72,6 +72,12 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId }: 
           title: "Disconnected",
           message: "You left the painting session. Ready to start again?",
           icon: "🔌"
+        };
+      case 'collision':
+        return {
+          title: "Emoji Collision",
+          message: "Your emoji collided with other players 3 times!",
+          icon: "💥"
         };
       default:
         return {

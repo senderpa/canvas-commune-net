@@ -15,6 +15,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
 import { useSessionStrokeCount } from '@/hooks/useSessionStrokeCount';
+import EmojiSelectionOverlay from '@/components/EmojiSelectionOverlay';
 
 export type Tool = 'brush';
 
@@ -28,7 +29,7 @@ export interface PaintState {
 
 const Index = () => {
   const isMobile = useIsMobile();
-  const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, updatePaintState, resetKick } = usePlayerSession();
+  const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, updatePaintState, checkCollisions, resetKick } = usePlayerSession();
   const { strokes, isLoading: strokesLoading, addStroke } = useRealTimeStrokes();
   const { sessionStrokeCount, incrementStrokeCount, resetStrokeCount } = useSessionStrokeCount(sessionState.playerId, sessionState.isConnected);
   
@@ -46,6 +47,8 @@ const Index = () => {
   });
   
   const [isStarted, setIsStarted] = useState(false);
+  const [showEmojiSelection, setShowEmojiSelection] = useState(false);
+  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   
   // Generate new random color on each session start
   useEffect(() => {
@@ -88,9 +91,12 @@ const Index = () => {
       // Update position in database
       updatePosition(newPos.x, newPos.y);
       
+      // Check for collisions
+      checkCollisions(newPos.x, newPos.y);
+      
       return newPos;
     });
-  }, [updatePosition]);
+  }, [updatePosition, checkCollisions]);
 
   const handleStroke = useCallback(async (stroke: {
     points: { x: number; y: number }[];
@@ -183,8 +189,18 @@ const Index = () => {
         overscrollBehavior: 'none'
       }}
     >
+      {/* Emoji Selection Overlay - First screen */}
+      {showEmojiSelection && (
+        <EmojiSelectionOverlay
+          onEmojiSelect={(emoji) => {
+            setSelectedEmoji(emoji);
+            setShowEmojiSelection(false);
+          }}
+        />
+      )}
+
       {/* Start Window Overlay */}
-      {!isStarted && (
+      {!showEmojiSelection && !isStarted && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center">
             <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -226,32 +242,41 @@ const Index = () => {
             <LivePreview playerCount={sessionState.playerCount} />
             
             <button
-              onClick={async () => {
-                console.log('Start Painting button clicked');
-                const success = await joinSession();
-                if (success) {
-                  setIsStarted(true);
+              onClick={() => {
+                if (selectedEmoji) {
+                  console.log('Start Painting button clicked with emoji:', selectedEmoji);
+                  joinSession(selectedEmoji).then(success => {
+                    if (success) {
+                      setIsStarted(true);
+                    }
+                  });
+                } else {
+                  setShowEmojiSelection(true);
                 }
               }}
               disabled={!sessionState.canJoin}
               className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4"
             >
-              {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
+              {sessionState.canJoin ? (selectedEmoji ? `Start Painting ${selectedEmoji}` : 'Choose Emoji & Start') : 'Room Full - Join Queue'}
             </button>
             
             {/* Timelapse Button - smaller and under start button with better separation */}
             <button
               onClick={async () => {
                 console.log('Timelapse button clicked');
-                setIsTimeLapseOpen(true);
-                
-                // Also automatically start the session
-                if (!isStarted && sessionState.canJoin) {
-                  console.log('Auto-starting painting session from timelapse');
-                  const success = await joinSession();
-                  if (success) {
-                    setIsStarted(true);
+                if (selectedEmoji) {
+                  setIsTimeLapseOpen(true);
+                  
+                  // Also automatically start the session
+                  if (!isStarted && sessionState.canJoin) {
+                    console.log('Auto-starting painting session from timelapse');
+                    const success = await joinSession(selectedEmoji);
+                    if (success) {
+                      setIsStarted(true);
+                    }
                   }
+                } else {
+                  setShowEmojiSelection(true);
                 }
               }}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400"
@@ -282,6 +307,8 @@ const Index = () => {
             resetKick();
             resetStrokeCount();
             setIsStarted(false);
+            setSelectedEmoji(null);
+            setShowEmojiSelection(false);
           }}
         />
       )}
@@ -298,6 +325,8 @@ const Index = () => {
               strokeCount={strokes.length}
               playerCount={sessionState.playerCount}
               isConnected={sessionState.isConnected}
+              currentPlayerEmoji={sessionState.selectedEmoji}
+              currentPlayerId={sessionState.playerId}
             />
           </div>
 
@@ -372,6 +401,7 @@ const Index = () => {
               lastStrokeY={lastStrokePosition.y}
               strokes={canvasStrokes}
               currentPlayerId={sessionState.playerId || undefined}
+              currentPlayerEmoji={sessionState.selectedEmoji || undefined}
               onClose={() => setIsMapOpen(false)}
             />
           )}

@@ -1,6 +1,7 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { PaintState } from '@/pages/Index';
 import EdgeIndicators from './EdgeIndicators';
+import { useOtherPlayers } from '@/hooks/useOtherPlayers';
 
 interface Stroke {
   id: string;
@@ -19,13 +20,20 @@ interface WorldCanvasProps {
   strokeCount: number;
   playerCount: number;
   isConnected: boolean;
+  currentPlayerEmoji?: string | null;
+  currentPlayerId?: string | null;
 }
 
-const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playerCount, isConnected }: WorldCanvasProps) => {
+const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playerCount, isConnected, currentPlayerEmoji, currentPlayerId }: WorldCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
   const edgePanRef = useRef<number>();
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [lastTouchPosition, setLastTouchPosition] = useState({ x: paintState.x + 256, y: paintState.y + 256 });
+  
+  // Get other players for emoji display
+  const { otherPlayers } = useOtherPlayers(currentPlayerId);
   
   // Smooth edge panning state
   const edgePanVelocityRef = useRef({ x: 0, y: 0 });
@@ -167,7 +175,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
     }
   }, [worldToViewport]);
 
-  // Render all visible strokes including current stroke being drawn
+  // Render all strokes and emojis on the canvas
   const renderStrokes = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -186,7 +194,6 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
       if (stroke.points.length === 0) return;
       
       // Check if any point of the stroke is visible (with margin)
-      const canvasSize = getCanvasSize();
       const isVisible = stroke.points.some(point => {
         const viewportPos = worldToViewport(point.x, point.y);
         return viewportPos.x >= -stroke.size && viewportPos.x <= canvasSize + stroke.size &&
@@ -210,7 +217,51 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
       };
       drawStroke(ctx, currentStroke);
     }
-  }, [strokes, worldToViewport, drawStroke, paintState, getCanvasSize]);
+
+    // Draw other players' emojis
+    otherPlayers.forEach(player => {
+      const playerX = player.position_x - paintState.x;
+      const playerY = player.position_y - paintState.y;
+      
+      // Only draw if within viewport
+      if (playerX >= -50 && playerX <= canvasSize + 50 && playerY >= -50 && playerY <= canvasSize + 50) {
+        const isHit = player.is_hit && player.hit_timestamp && 
+          (Date.now() - new Date(player.hit_timestamp).getTime()) < 1000;
+        
+        // Draw hit effect with pulsing red background
+        if (isHit) {
+          ctx.save();
+          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = '#ff0000';
+          ctx.beginPath();
+          ctx.arc(playerX, playerY, 25, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.restore();
+        }
+        
+        // Draw player emoji
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = isHit ? '#ff0000' : '#000000';
+        ctx.fillText(player.selected_emoji || '😀', playerX, playerY);
+      }
+    });
+
+    // Draw current player emoji at mouse/touch position
+    if (currentPlayerEmoji) {
+      ctx.font = '28px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000000';
+      
+      // Show emoji at mouse position when hovering, or at last touch position
+      const emojiX = isDrawingRef.current ? lastTouchPosition.x - paintState.x : mousePosition.x;
+      const emojiY = isDrawingRef.current ? lastTouchPosition.y - paintState.y : mousePosition.y;
+      
+      ctx.fillText(currentPlayerEmoji, emojiX, emojiY);
+    }
+  }, [strokes, worldToViewport, drawStroke, paintState, getCanvasSize, otherPlayers, currentPlayerEmoji, mousePosition, lastTouchPosition]);
 
   // Re-render when viewport or strokes change
   useEffect(() => {
@@ -236,6 +287,9 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
     const worldPos = viewportToWorld(point.x, point.y);
     currentStrokeRef.current = [worldPos];
     
+    // Update last touch position for emoji
+    setLastTouchPosition(worldPos);
+    
     const canvas = canvasRef.current;
     if (canvas) {
       canvas.setPointerCapture(e.pointerId);
@@ -246,26 +300,39 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
   }, [getCanvasPoint, viewportToWorld, renderStrokes]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDrawingRef.current) return;
-
     const point = getCanvasPoint(e);
     if (!point) return;
 
-    // Add point to current stroke in world coordinates
-    const worldPos = viewportToWorld(point.x, point.y);
-    currentStrokeRef.current.push(worldPos);
+    // Update mouse position for emoji display
+    setMousePosition(point);
 
-    // Throttle re-rendering during drawing to prevent mobile glitches
-    requestAnimationFrame(() => {
+    if (isDrawingRef.current) {
+      // Add point to current stroke in world coordinates
+      const worldPos = viewportToWorld(point.x, point.y);
+      currentStrokeRef.current.push(worldPos);
+      
+      // Update last touch position for emoji
+      setLastTouchPosition(worldPos);
+
+      // Throttle re-rendering during drawing to prevent mobile glitches
+      requestAnimationFrame(() => {
+        renderStrokes();
+      });
+
+      // Handle edge panning while drawing
+      handleEdgePanning(e.clientX, e.clientY);
+    } else {
+      // Just update emoji position when not drawing
       renderStrokes();
-    });
-
-    // Handle edge panning while drawing
-    handleEdgePanning(e.clientX, e.clientY);
+    }
   }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning]);
 
   const handlePointerUp = useCallback(() => {
     if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
+      // Update last touch position to last stroke point
+      const lastPoint = currentStrokeRef.current[currentStrokeRef.current.length - 1];
+      setLastTouchPosition(lastPoint);
+      
       // Send complete stroke
       onStroke({
         points: [...currentStrokeRef.current],
