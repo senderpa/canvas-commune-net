@@ -130,6 +130,8 @@ export const usePlayerSession = () => {
           current_tool: 'brush',
           current_size: 5,
           selected_emoji: emoji || '😀',
+          collision_count: 0,
+          is_hit: false,
         });
 
       if (insertError) {
@@ -233,16 +235,34 @@ export const usePlayerSession = () => {
 
   // Check for collisions with other players
   const checkCollisions = useCallback(async (currentX: number, currentY: number) => {
-    if (!sessionState.isConnected || !sessionState.playerId) return;
+    console.log('checkCollisions called with:', currentX, currentY);
+    if (!sessionState.isConnected || !sessionState.playerId) {
+      console.log('checkCollisions: not connected or no playerId');
+      return;
+    }
 
     try {
+      // First get current player's collision count
+      const { data: currentPlayer } = await supabase
+        .from('player_sessions')
+        .select('collision_count')
+        .eq('player_id', sessionState.playerId)
+        .single();
+
+      const currentCollisionCount = currentPlayer?.collision_count || 0;
+
       const { data: otherPlayers, error } = await supabase
         .from('player_sessions')
         .select('*')
         .eq('is_active', true)
         .neq('player_id', sessionState.playerId);
 
-      if (error || !otherPlayers) return;
+      if (error || !otherPlayers) {
+        console.log('checkCollisions: error or no other players', error);
+        return;
+      }
+
+      console.log('checkCollisions: checking against', otherPlayers.length, 'other players');
 
       for (const otherPlayer of otherPlayers) {
         const distance = Math.sqrt(
@@ -252,11 +272,14 @@ export const usePlayerSession = () => {
 
         // Collision detected if players are within 50 pixels
         if (distance < 50) {
+          console.log('Collision detected with player:', otherPlayer.player_id);
+          const newCollisionCount = currentCollisionCount + 1;
+          
           // Update collision count for current player
           const { error: updateError } = await supabase
             .from('player_sessions')
             .update({ 
-              collision_count: (sessionState as any).collision_count + 1 || 1,
+              collision_count: newCollisionCount,
               is_hit: true,
               hit_timestamp: new Date().toISOString()
             })
@@ -264,7 +287,8 @@ export const usePlayerSession = () => {
 
           if (!updateError) {
             // Check if player should be disconnected (3 collisions)
-            if (((sessionState as any).collision_count || 0) >= 2) { // 2 because we're adding 1
+            if (newCollisionCount >= 3) {
+              console.log('Player reached 3 collisions, disconnecting');
               setSessionState(prev => ({
                 ...prev,
                 isConnected: false,
@@ -463,7 +487,7 @@ export const usePlayerSession = () => {
         cleanup();
       }
     };
-  }, [sessionState.isConnected, updateActivity, playerId]);
+  }, [sessionState.isConnected, updateActivity, playerId, leaveSession]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -472,7 +496,7 @@ export const usePlayerSession = () => {
         leaveSession();
       }
     };
-  }, []);
+  }, [leaveSession, sessionState.isConnected]);
 
   return {
     sessionState,
