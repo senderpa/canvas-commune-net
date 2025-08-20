@@ -241,9 +241,18 @@ const Index = () => {
             
             {/* Timelapse Button - smaller and under start button with better separation */}
             <button
-              onClick={() => {
+              onClick={async () => {
                 console.log('Timelapse button clicked');
                 setIsTimeLapseOpen(true);
+                
+                // Also automatically start the session
+                if (!isStarted && sessionState.canJoin) {
+                  console.log('Auto-starting painting session from timelapse');
+                  const success = await joinSession();
+                  if (success) {
+                    setIsStarted(true);
+                  }
+                }
               }}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400"
             >

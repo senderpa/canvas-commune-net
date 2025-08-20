@@ -26,6 +26,10 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
   const isDrawingRef = useRef(false);
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
   const edgePanRef = useRef<number>();
+  
+  // Smooth edge panning state
+  const edgePanVelocityRef = useRef({ x: 0, y: 0 });
+  const lastEdgePanTimeRef = useRef(0);
 
   // Dynamic canvas size: starts at 512x512, grows by 1 pixel per stroke, max 30% of world (3000x3000)
   const getCanvasSize = useCallback(() => {
@@ -35,7 +39,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
     return dynamicSize;
   }, [strokeCount]);
 
-  // Edge panning when painting near borders
+  // Smooth edge panning when painting near borders
   const handleEdgePanning = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas || !isDrawingRef.current) return;
@@ -44,25 +48,40 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     
-    const edgeThreshold = 40; // Much smaller - only very close to border
-    const panSpeed = 2; // Reduced from 3 for smoother movement
+    const edgeThreshold = 40;
+    const maxPanSpeed = 3;
     
-    let deltaX = 0;
-    let deltaY = 0;
+    // Calculate target velocity based on distance from edge
+    let targetVelX = 0;
+    let targetVelY = 0;
     
-    // Check edges and calculate pan direction - use actual canvas width/height
     const canvasWidth = rect.width;
     const canvasHeight = rect.height;
     
-    if (x < edgeThreshold) deltaX = -panSpeed; // Left edge
-    if (x > canvasWidth - edgeThreshold) deltaX = panSpeed; // Right edge
-    if (y < edgeThreshold) deltaY = -panSpeed; // Top edge
-    if (y > canvasHeight - edgeThreshold) deltaY = panSpeed; // Bottom edge
+    if (x < edgeThreshold) {
+      targetVelX = -maxPanSpeed * (1 - x / edgeThreshold); // Stronger closer to edge
+    } else if (x > canvasWidth - edgeThreshold) {
+      const distFromEdge = canvasWidth - x;
+      targetVelX = maxPanSpeed * (1 - distFromEdge / edgeThreshold);
+    }
     
-    if (deltaX !== 0 || deltaY !== 0) {
-      onMove(deltaX, deltaY);
+    if (y < edgeThreshold) {
+      targetVelY = -maxPanSpeed * (1 - y / edgeThreshold);
+    } else if (y > canvasHeight - edgeThreshold) {
+      const distFromEdge = canvasHeight - y;
+      targetVelY = maxPanSpeed * (1 - distFromEdge / edgeThreshold);
+    }
+    
+    // Smooth lerp to target velocity
+    const lerpFactor = 0.15;
+    edgePanVelocityRef.current.x += (targetVelX - edgePanVelocityRef.current.x) * lerpFactor;
+    edgePanVelocityRef.current.y += (targetVelY - edgePanVelocityRef.current.y) * lerpFactor;
+    
+    // Apply movement if velocity is significant
+    if (Math.abs(edgePanVelocityRef.current.x) > 0.1 || Math.abs(edgePanVelocityRef.current.y) > 0.1) {
+      onMove(edgePanVelocityRef.current.x, edgePanVelocityRef.current.y);
       
-      // Continue panning while drawing near edge
+      // Continue panning
       if (edgePanRef.current) {
         cancelAnimationFrame(edgePanRef.current);
       }
@@ -70,7 +89,8 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
         handleEdgePanning(clientX, clientY);
       });
     } else {
-      // Stop panning when not near edge
+      // Stop panning when velocity is too low
+      edgePanVelocityRef.current = { x: 0, y: 0 };
       if (edgePanRef.current) {
         cancelAnimationFrame(edgePanRef.current);
         edgePanRef.current = undefined;
@@ -257,6 +277,9 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
     
     isDrawingRef.current = false;
     currentStrokeRef.current = [];
+    
+    // Reset edge panning velocity when stopping drawing
+    edgePanVelocityRef.current = { x: 0, y: 0 };
     
     // Stop edge panning
     if (edgePanRef.current) {
