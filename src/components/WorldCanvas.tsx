@@ -27,6 +27,14 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
   const edgePanRef = useRef<number>();
 
+  // Dynamic canvas size: starts at 512x512, grows by 1 pixel per stroke, max 30% of world (3000x3000)
+  const getCanvasSize = useCallback(() => {
+    const baseSize = 512;
+    const maxSize = 3000; // 30% of 10000 world size
+    const dynamicSize = Math.min(baseSize + strokeCount, maxSize);
+    return dynamicSize;
+  }, [strokeCount]);
+
   // Edge panning when painting near borders
   const handleEdgePanning = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -147,19 +155,22 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const canvasSize = getCanvasSize();
+    
     // Clear canvas
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillRect(0, 0, canvasSize, canvasSize);
 
     // Draw all completed strokes that have points visible in current viewport
     strokes.forEach(stroke => {
       if (stroke.points.length === 0) return;
       
       // Check if any point of the stroke is visible (with margin)
+      const canvasSize = getCanvasSize();
       const isVisible = stroke.points.some(point => {
         const viewportPos = worldToViewport(point.x, point.y);
-        return viewportPos.x >= -stroke.size && viewportPos.x <= 512 + stroke.size &&
-               viewportPos.y >= -stroke.size && viewportPos.y <= 512 + stroke.size;
+        return viewportPos.x >= -stroke.size && viewportPos.x <= canvasSize + stroke.size &&
+               viewportPos.y >= -stroke.size && viewportPos.y <= canvasSize + stroke.size;
       });
 
       if (isVisible) {
@@ -179,22 +190,23 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
       };
       drawStroke(ctx, currentStroke);
     }
-  }, [strokes, worldToViewport, drawStroke, paintState]);
+  }, [strokes, worldToViewport, drawStroke, paintState, getCanvasSize]);
 
   // Re-render when viewport or strokes change
   useEffect(() => {
     renderStrokes();
   }, [renderStrokes]);
 
-  // Initialize canvas
+  // Initialize canvas and update size when stroke count changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.width = 512;
-    canvas.height = 512;
+    const canvasSize = getCanvasSize();
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
     renderStrokes();
-  }, [renderStrokes]);
+  }, [renderStrokes, getCanvasSize]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
@@ -261,7 +273,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
           worldX={paintState.x}
           worldY={paintState.y}
           worldSize={10000}
-          viewportSize={512}
+          viewportSize={getCanvasSize()}
         />
 
         {/* Main canvas - responsive and centered */}

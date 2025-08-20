@@ -117,12 +117,18 @@ const TimeLapse = ({ isOpen, onClose }: TimeLapseProps) => {
     }
   }, [currentStrokeIndex, sortedStrokes, drawStroke]);
 
-  // Auto-start animation when opened
+  // Auto-start animation when opened with 0.5s delay
   useEffect(() => {
     if (isOpen && sortedStrokes.length > 0) {
       setCurrentStrokeIndex(0);
       setIsReverse(false);
-      setIsPlaying(true);
+      
+      // Start playing after 0.5s delay
+      const timer = setTimeout(() => {
+        setIsPlaying(true);
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
   }, [isOpen, sortedStrokes.length]);
 

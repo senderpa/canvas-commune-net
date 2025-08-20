@@ -26,6 +26,11 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
   const [zoom, setZoom] = useState(0.06); // Show full world (10000 pixels in 600px canvas = 0.06)
   const [panX, setPanX] = useState(5000); // Center of world (10000/2)
   const [panY, setPanY] = useState(5000); // Center of world (10000/2)
+  
+  // Animation targets for smooth transitions
+  const [targetZoom, setTargetZoom] = useState(0.06);
+  const [targetPanX, setTargetPanX] = useState(5000);
+  const [targetPanY, setTargetPanY] = useState(5000);
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [isBlinking, setIsBlinking] = useState(true);
@@ -38,6 +43,32 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
 
   // Blinking animation for player position - higher frequency when actively painting
   const [isActivelyPainting, setIsActivelyPainting] = useState(false);
+  
+  // Smooth animation loop for zoom and pan
+  useEffect(() => {
+    const animateToTarget = () => {
+      const lerpFactor = 0.1; // Smooth lerp speed
+      
+      setZoom(current => {
+        const diff = targetZoom - current;
+        return Math.abs(diff) < 0.001 ? targetZoom : current + diff * lerpFactor;
+      });
+      
+      setPanX(current => {
+        const diff = targetPanX - current;
+        return Math.abs(diff) < 1 ? targetPanX : current + diff * lerpFactor;
+      });
+      
+      setPanY(current => {
+        const diff = targetPanY - current;
+        return Math.abs(diff) < 1 ? targetPanY : current + diff * lerpFactor;
+      });
+      
+      requestAnimationFrame(animateToTarget);
+    };
+    
+    requestAnimationFrame(animateToTarget);
+  }, [targetZoom, targetPanX, targetPanY]);
   
   useEffect(() => {
     // Check if player moved recently (indicating active painting)
@@ -265,9 +296,9 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
               size="sm"
               variant="outline"
               onClick={() => {
-                setZoom(0.06);
-                setPanX(worldSize / 2);
-                setPanY(worldSize / 2);
+                setTargetZoom(0.06);
+                setTargetPanX(worldSize / 2);
+                setTargetPanY(worldSize / 2);
               }}
             >
               Fit World
@@ -276,9 +307,9 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
               size="sm"
               variant="outline"
               onClick={() => {
-                setPanX(lastStrokeX);
-                setPanY(lastStrokeY);
-                setZoom(2);
+                setTargetPanX(lastStrokeX);
+                setTargetPanY(lastStrokeY);
+                setTargetZoom(2);
               }}
             >
               Go to Me
