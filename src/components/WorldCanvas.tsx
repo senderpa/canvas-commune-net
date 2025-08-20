@@ -47,6 +47,17 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
     return dynamicSize;
   }, [strokeCount]);
 
+  // Keep emoji position within canvas bounds
+  const constrainEmojiPosition = useCallback((x: number, y: number) => {
+    const canvasSize = getCanvasSize();
+    const emojiPadding = 40; // Half of emoji size to keep it fully visible
+    
+    return {
+      x: Math.max(emojiPadding, Math.min(canvasSize - emojiPadding, x)),
+      y: Math.max(emojiPadding, Math.min(canvasSize - emojiPadding, y))
+    };
+  }, [getCanvasSize]);
+
   // Smooth edge panning when painting near borders
   const handleEdgePanning = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -218,50 +229,57 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
       drawStroke(ctx, currentStroke);
     }
 
-    // Draw other players' emojis
+    // Draw other players' emojis - 3x bigger (72px instead of 24px)
     otherPlayers.forEach(player => {
       const playerX = player.position_x - paintState.x;
       const playerY = player.position_y - paintState.y;
       
-      // Only draw if within viewport
-      if (playerX >= -50 && playerX <= canvasSize + 50 && playerY >= -50 && playerY <= canvasSize + 50) {
+      // Constrain emoji position within canvas bounds
+      const constrainedPos = constrainEmojiPosition(playerX, playerY);
+      
+      // Only draw if within expanded viewport (including constrained positions)
+      if (constrainedPos.x >= -80 && constrainedPos.x <= canvasSize + 80 && 
+          constrainedPos.y >= -80 && constrainedPos.y <= canvasSize + 80) {
         const isHit = player.is_hit && player.hit_timestamp && 
           (Date.now() - new Date(player.hit_timestamp).getTime()) < 1000;
         
-        // Draw hit effect with pulsing red background
+        // Draw hit effect with pulsing red background - bigger
         if (isHit) {
           ctx.save();
           ctx.globalAlpha = 0.5;
           ctx.fillStyle = '#ff0000';
           ctx.beginPath();
-          ctx.arc(playerX, playerY, 25, 0, 2 * Math.PI);
+          ctx.arc(constrainedPos.x, constrainedPos.y, 45, 0, 2 * Math.PI); // Bigger hit circle
           ctx.fill();
           ctx.restore();
         }
         
-        // Draw player emoji
-        ctx.font = '24px Arial';
+        // Draw player emoji - 3x bigger
+        ctx.font = '72px Arial'; // 3x bigger than 24px
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = isHit ? '#ff0000' : '#000000';
-        ctx.fillText(player.selected_emoji || '😀', playerX, playerY);
+        ctx.fillText(player.selected_emoji || '😀', constrainedPos.x, constrainedPos.y);
       }
     });
 
-    // Draw current player emoji at mouse/touch position
+    // Draw current player emoji at mouse/touch position - 3x bigger and constrained
     if (currentPlayerEmoji) {
-      ctx.font = '28px Arial';
+      ctx.font = '84px Arial'; // 3x bigger than 28px
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#000000';
       
       // Show emoji at mouse position when hovering, or at last touch position
-      const emojiX = isDrawingRef.current ? lastTouchPosition.x - paintState.x : mousePosition.x;
-      const emojiY = isDrawingRef.current ? lastTouchPosition.y - paintState.y : mousePosition.y;
+      const rawEmojiPos = isDrawingRef.current ? 
+        { x: lastTouchPosition.x - paintState.x, y: lastTouchPosition.y - paintState.y } :
+        mousePosition;
       
-      ctx.fillText(currentPlayerEmoji, emojiX, emojiY);
+      const constrainedEmojiPos = constrainEmojiPosition(rawEmojiPos.x, rawEmojiPos.y);
+      
+      ctx.fillText(currentPlayerEmoji, constrainedEmojiPos.x, constrainedEmojiPos.y);
     }
-  }, [strokes, worldToViewport, drawStroke, paintState, getCanvasSize, otherPlayers, currentPlayerEmoji, mousePosition, lastTouchPosition]);
+  }, [strokes, worldToViewport, drawStroke, paintState, getCanvasSize, otherPlayers, currentPlayerEmoji, mousePosition, lastTouchPosition, constrainEmojiPosition]);
 
   // Re-render when viewport or strokes change
   useEffect(() => {
@@ -303,8 +321,9 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
     const point = getCanvasPoint(e);
     if (!point) return;
 
-    // Update mouse position for emoji display
-    setMousePosition(point);
+    // Update mouse position for emoji display - constrain within bounds
+    const constrainedMousePos = constrainEmojiPosition(point.x, point.y);
+    setMousePosition(constrainedMousePos);
 
     if (isDrawingRef.current) {
       // Add point to current stroke in world coordinates
@@ -325,7 +344,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
       // Just update emoji position when not drawing
       renderStrokes();
     }
-  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, constrainEmojiPosition]);
 
   const handlePointerUp = useCallback(() => {
     if (isDrawingRef.current && currentStrokeRef.current.length > 0) {

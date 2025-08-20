@@ -201,19 +201,19 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
     // Draw all strokes
     strokes.forEach(stroke => drawStroke(ctx, stroke));
 
-    // Draw other players with their emojis and random colors
+    // Draw other players with their emojis - 3x bigger
     otherPlayers.forEach((player, index) => {
       const playerX = ((player.position_x - panX) * zoom) + minimapSize / 2;
       const playerY = ((player.position_y - panY) * zoom) + minimapSize / 2;
       
       // Only draw if within canvas bounds (with some buffer)
-      if (playerX >= -20 && playerX <= minimapSize + 20 && playerY >= -20 && playerY <= minimapSize + 20) {
-        // Draw player emoji with hit effect
-        const emojiSize = Math.max(12, 20 * zoom);
+      if (playerX >= -30 && playerX <= minimapSize + 30 && playerY >= -30 && playerY <= minimapSize + 30) {
+        // Draw player emoji with hit effect - 3x bigger
+        const emojiSize = Math.max(36, 60 * zoom); // 3x bigger
         const isHit = player.is_hit && player.hit_timestamp && 
           (Date.now() - new Date(player.hit_timestamp).getTime()) < 1000; // Show hit effect for 1 second
         
-        // Add pulsing background if hit
+        // Add pulsing background if hit - bigger
         if (isHit) {
           ctx.beginPath();
           ctx.arc(playerX, playerY, emojiSize * 1.5, 0, 2 * Math.PI);
@@ -221,7 +221,7 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
           ctx.fill();
         }
         
-        // Draw emoji
+        // Draw emoji - 3x bigger
         ctx.font = `${emojiSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -230,12 +230,12 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
       }
     });
 
-    // Draw current player emoji with blinking effect - show where last stroke ended
+    // Draw current player emoji with blinking effect - 3x bigger
     const playerCanvasX = ((lastStrokeX - panX) * zoom) + minimapSize / 2;
     const playerCanvasY = ((lastStrokeY - panY) * zoom) + minimapSize / 2;
 
-    // Draw current player emoji with blinking border
-    const currentEmojiSize = Math.max(16, 24 * zoom);
+    // Draw current player emoji with blinking border - 3x bigger
+    const currentEmojiSize = Math.max(48, 72 * zoom); // 3x bigger
     
     // Blinking background circle
     if (isBlinking) {
@@ -245,7 +245,7 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
       ctx.fill();
     }
     
-    // Draw current player emoji
+    // Draw current player emoji - 3x bigger
     ctx.font = `${currentEmojiSize}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

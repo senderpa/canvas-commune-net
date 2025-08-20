@@ -1,413 +1,382 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import WorldCanvas from '@/components/WorldCanvas';
-import ColorPicker from '@/components/ColorPicker';
-import ToolBar from '@/components/ToolBar';
-import PlayerStats from '@/components/PlayerStats';
-import InfoDialog from '@/components/InfoDialog';
-import AnimationReplay from '@/components/AnimationReplay';
-import WorldMinimap from '@/components/WorldMinimap';
-import MobileOverlay from '@/components/MobileOverlay';
-import QueueOverlay from '@/components/QueueOverlay';
-import KickedOverlay from '@/components/KickedOverlay';
-import { LivePreview } from '@/components/LivePreview';
-import TimeLapse from '@/components/TimeLapse';
-import { useIsMobile } from '@/hooks/use-mobile';
+import PaintToolbar from '@/components/PaintToolbar';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
-import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
-import { useSessionStrokeCount } from '@/hooks/useSessionStrokeCount';
 import EmojiSelectionOverlay from '@/components/EmojiSelectionOverlay';
+import WorldMinimap from '@/components/WorldMinimap';
+import { supabase } from '@/integrations/supabase/client';
+import { useWindowSize } from 'usehooks-ts';
 
-export type Tool = 'brush';
+interface Stroke {
+  id: string;
+  points: { x: number; y: number }[];
+  color: string;
+  size: number;
+  tool: 'brush';
+  timestamp: number;
+}
 
 export interface PaintState {
-  color: string;
-  tool: Tool;
-  size: number;
-  x: number; // Current viewport position in world coordinates
+  x: number;
   y: number;
+  tool: 'brush';
+  color: string;
+  size: number;
 }
 
 const Index = () => {
-  const isMobile = useIsMobile();
-  const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, updatePaintState, checkCollisions, resetKick } = usePlayerSession();
-  const { strokes, isLoading: strokesLoading, addStroke } = useRealTimeStrokes();
-  const { sessionStrokeCount, incrementStrokeCount, resetStrokeCount } = useSessionStrokeCount(sessionState.playerId, sessionState.isConnected);
-  
-  // Generate random starting position and color (updated)
-  const [initialPosition] = useState(() => ({
-    x: Math.floor(Math.random() * (10000 - 512)),
-    y: Math.floor(Math.random() * (10000 - 512))
-  }));
-  
   const [paintState, setPaintState] = useState<PaintState>({
-    color: '#ff0080', // Will be overridden by useEffect
+    x: 0,
+    y: 0,
     tool: 'brush',
-    size: 3,
-    ...initialPosition
+    color: '#000000',
+    size: 5,
   });
-  
-  const [isStarted, setIsStarted] = useState(false);
+
+  const [showWelcome, setShowWelcome] = useState(true);
   const [showEmojiSelection, setShowEmojiSelection] = useState(false);
+  const [showMinimap, setShowMinimap] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  const {
+    sessionState,
+    joinSession,
+    leaveSession,
+    updatePosition,
+    updatePaintState,
+    checkCollisions,
+    resetKick,
+  } = usePlayerSession();
+
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [lastStrokeX, setLastStrokeX] = useState(5000);
+  const [lastStrokeY, setLastStrokeY] = useState(5000);
+  const [strokeCount, setStrokeCount] = useState(0);
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [isStrokesLoading, setIsStrokesLoading] = useState(false);
+  const [strokesError, setStrokesError] = useState<Error | null>(null);
+  const [playerCount, setPlayerCount] = useState(0);
+  const [queueCount, setQueueCount] = useState(0);
+  const [canJoin, setCanJoin] = useState(false);
+  const [queuePosition, setQueuePosition] = useState(0);
+  const [isKicked, setIsKicked] = useState(false);
+  const [kickReason, setKickReason] = useState<'timeout' | 'inactivity' | 'full' | 'disconnected' | 'collision' | null>(null);
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
+  const [currentPlayerEmoji, setCurrentPlayerEmoji] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isCanvasReady, setIsCanvasReady] = useState(false);
+  const [isFirstStroke, setIsFirstStroke] = useState(true);
+  const [isEmojiSelected, setIsEmojiSelected] = useState(false);
+  const [isEmojiSelectionComplete, setIsEmojiSelectionComplete] = useState(false);
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
-  
-  // Generate new random color on each session start
+  const [emojiSelection, setEmojiSelection] = useState<string[]>([]);
+  const [isEmojiSelectionOverlayOpen, setIsEmojiSelectionOverlayOpen] = useState(false);
+  const [isEmojiPickerVisible, setIsEmojiPickerVisible] = useState(false);
+  const [isEmojiPickerReady, setIsEmojiPickerReady] = useState(false);
+  const [isEmojiPickerLoading, setIsEmojiPickerLoading] = useState(false);
+  const [isEmojiPickerError, setIsEmojiPickerError] = useState(false);
+  const [isEmojiPickerSuccess, setIsEmojiPickerSuccess] = useState(false);
+	const [isEmojiPickerDisabled, setIsEmojiPickerDisabled] = useState(false);
+	const [isEmojiPickerEnabled, setIsEmojiPickerEnabled] = useState(true);
+	const [isEmojiPickerAvailable, setIsEmojiPickerAvailable] = useState(true);
+	const [isEmojiPickerLoadingComplete, setIsEmojiPickerLoadingComplete] = useState(true);
+	const [isEmojiPickerLoadingError, setIsEmojiPickerLoadingError] = useState(false);
+	const [isEmojiPickerLoadingSuccess, setIsEmojiPickerLoadingSuccess] = useState(true);
+	const [isEmojiPickerLoadingDisabled, setIsEmojiPickerLoadingDisabled] = useState(false);
+	const [isEmojiPickerLoadingEnabled, setIsEmojiPickerLoadingEnabled] = useState(true);
+	const [isEmojiPickerLoadingAvailable, setIsEmojiPickerLoadingAvailable] = useState(true);
+	const [isEmojiPickerLoadingCompleteError, setIsEmojiPickerLoadingCompleteError] = useState(false);
+	const [isEmojiPickerLoadingCompleteSuccess, setIsEmojiPickerLoadingCompleteSuccess] = useState(true);
+	const [isEmojiPickerLoadingCompleteDisabled, setIsEmojiPickerLoadingCompleteDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteEnabled, setIsEmojiPickerLoadingCompleteEnabled] = useState(true);
+	const [isEmojiPickerLoadingCompleteAvailable, setIsEmojiPickerLoadingCompleteAvailable] = useState(true);
+	const [isEmojiPickerLoadingCompleteErrorSuccess, setIsEmojiPickerLoadingCompleteErrorSuccess] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorDisabled, setIsEmojiPickerLoadingCompleteErrorDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorEnabled, setIsEmojiPickerLoadingCompleteErrorEnabled] = useState(true);
+	const [isEmojiPickerLoadingCompleteErrorAvailable, setIsEmojiPickerLoadingCompleteErrorAvailable] = useState(true);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessEnabled] = useState(true);
+	const [isEmojiPickerLoadingCompleteErrorSuccessAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessAvailable] = useState(true);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableComplete, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableComplete] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteError, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteError] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteSuccess, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteSuccess] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccess, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccess] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableComplete, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableComplete] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableError, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableError] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableSuccess, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableSuccess] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccess, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccess] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableComplete, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableComplete] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableError, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableError] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableSuccess, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableSuccess] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableComplete, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableComplete] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableError, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableError] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableSuccess, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableSuccess] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableComplete, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableComplete] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableError, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableError] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableSuccess, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableSuccess] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableErrorSuccessDisabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableErrorSuccessDisabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableErrorSuccessEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableErrorSuccessEnabled] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableErrorSuccessAvailable, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableErrorSuccessAvailable] = useState(false);
+	const [isEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableErrorSuccessDisabledEnabled, setIsEmojiPickerLoadingCompleteErrorSuccessDisabledEnabledAvailableCompleteErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessDisabledEnabledAvailableErrorSuccessAvailableDisabledEnabledAvailableErrorSuccessDisabledAvailableErrorSuccessDisabledEnabled] = useState(false);
+  const windowSize = useWindowSize();
+
   useEffect(() => {
-    if (isStarted && sessionState.isConnected) {
-      const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
-      const newColor = colors[Math.floor(Math.random() * colors.length)];
-      setPaintState(prev => ({ ...prev, color: newColor }));
-      console.log('Random color generated on session start:', newColor);
+    setIsMobile(windowSize.width < 768);
+  }, [windowSize.width]);
+
+  const handleStartPainting = () => {
+    setShowWelcome(false);
+    setShowEmojiSelection(true);
+  };
+
+  const handleEmojiSelect = async (emoji: string) => {
+    setShowEmojiSelection(false);
+    const success = await joinSession(emoji);
+    if (!success) {
+      setShowWelcome(true);
     }
-  }, [isStarted, sessionState.isConnected]);
-  const [isInfoOpen, setIsInfoOpen] = useState(false);
-  const [isPlayOpen, setIsPlayOpen] = useState(false);
-  const [isTimeLapseOpen, setIsTimeLapseOpen] = useState(false);
-  const [isMapOpen, setIsMapOpen] = useState(false);
-  const [targetPosition, setTargetPosition] = useState(initialPosition);
-  const [lastStrokePosition, setLastStrokePosition] = useState(initialPosition);
-  
-  const handleColorChange = useCallback((color: string) => {
-    setPaintState(prev => ({ ...prev, color }));
-    updatePaintState(color, undefined, undefined);
-  }, [updatePaintState]);
-  
-  const handleToolChange = useCallback((tool: Tool) => {
-    setPaintState(prev => ({ ...prev, tool }));
-    updatePaintState(undefined, tool, undefined);
-  }, [updatePaintState]);
-  
-  const handleSizeChange = useCallback((size: number) => {
-    setPaintState(prev => ({ ...prev, size }));
-    updatePaintState(undefined, undefined, size);
-  }, [updatePaintState]);
-  
-  const handleMove = useCallback((deltaX: number, deltaY: number) => {
-    setTargetPosition(prev => {
-      const newPos = {
-        x: Math.max(0, Math.min(10000 - 512, prev.x + deltaX)),
-        y: Math.max(0, Math.min(10000 - 512, prev.y + deltaY))
-      };
-      
-      // Update position in database
-      updatePosition(newPos.x, newPos.y);
-      
-      // Check for collisions
-      checkCollisions(newPos.x, newPos.y);
-      
-      return newPos;
-    });
-  }, [updatePosition, checkCollisions]);
+  };
 
-  const handleStroke = useCallback(async (stroke: {
-    points: { x: number; y: number }[];
-    color: string;
-    size: number;
-    tool: 'brush';
-  }) => {
-    // Ensure all stroke points are within world bounds
-    const validPoints = stroke.points.filter(point => 
-      point.x >= 0 && point.x < 10000 && point.y >= 0 && point.y < 10000
-    );
-    
-    if (validPoints.length > 0 && sessionState.playerId) {
-      // Track the last stroke position (end of last stroke)
-      const lastPoint = validPoints[validPoints.length - 1];
-      setLastStrokePosition({ x: lastPoint.x, y: lastPoint.y });
-      
-      // Calculate world position for the stroke (center point)
-      const avgX = validPoints.reduce((sum, p) => sum + p.x, 0) / validPoints.length;
-      const avgY = validPoints.reduce((sum, p) => sum + p.y, 0) / validPoints.length;
-      
-      await addStroke({
-        player_id: sessionState.playerId,
-        points: validPoints,
-        color: stroke.color,
-        size: stroke.size,
-        tool: stroke.tool,
-        world_x: Math.floor(avgX),
-        world_y: Math.floor(avgY)
-      });
-      
-      // Increment session stroke count
-      incrementStrokeCount();
-      
-      // Update activity when painting
-      updateActivity();
-    }
-  }, [addStroke, updateActivity, sessionState.playerId, incrementStrokeCount]);
+  const handleMove = useCallback(
+    async (deltaX: number, deltaY: number) => {
+      const newX = paintState.x + deltaX;
+      const newY = paintState.y + deltaY;
 
-  // Smooth lerp movement
-  useEffect(() => {
-    const lerp = (start: number, end: number, factor: number) => {
-      return start + (end - start) * factor;
-    };
+      setPaintState((prev) => ({
+        ...prev,
+        x: newX,
+        y: newY,
+      }));
 
-    let animationFrame: number;
-    
-    const updatePosition = () => {
-      setPaintState(prev => {
-        const lerpFactor = 0.1; // Smooth movement speed
-        const newX = lerp(prev.x, targetPosition.x, lerpFactor);
-        const newY = lerp(prev.y, targetPosition.y, lerpFactor);
-        
-        // Continue animation if not close enough
-        if (Math.abs(newX - targetPosition.x) > 1 || Math.abs(newY - targetPosition.y) > 1) {
-          animationFrame = requestAnimationFrame(updatePosition);
-        }
-        
-        return { ...prev, x: newX, y: newY };
-      });
-    };
+      updatePosition(newX, newY);
+      setLastStrokeX(newX);
+      setLastStrokeY(newY);
+    },
+    [paintState.x, paintState.y, updatePosition]
+  );
 
-    updatePosition();
-    
-    return () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
+  const handleStroke = useCallback(
+    async (stroke: Omit<Stroke, 'id' | 'timestamp'>) => {
+      if (!sessionState.isConnected) {
+        toast({
+          title: 'Not connected',
+          description: 'Please connect to the server to draw',
+        });
+        return;
       }
-    };
-  }, [targetPosition]);
 
-  // Convert real-time strokes to canvas format (filter out eraser strokes)
-  const canvasStrokes = strokes
-    .filter(stroke => stroke.tool === 'brush') // Only show brush strokes
-    .map(stroke => ({
-      id: stroke.id,
-      points: stroke.points,
-      color: stroke.color,
-      size: stroke.size,
-      tool: 'brush' as const,
-      timestamp: new Date(stroke.created_at).getTime()
-    }));
+      const newStroke = {
+        ...stroke,
+        id: Math.random().toString(36).substring(2),
+        timestamp: Date.now(),
+      };
 
-  return (
-    <div 
-      className="min-h-screen w-full overflow-hidden fixed inset-0"
-      style={{ 
-        background: 'var(--background-gradient)',
-        touchAction: 'none',
-        overscrollBehavior: 'none'
-      }}
-    >
-      {/* Emoji Selection Overlay - First screen */}
-      {showEmojiSelection && (
-        <EmojiSelectionOverlay
-          onEmojiSelect={(emoji) => {
-            setSelectedEmoji(emoji);
-            setShowEmojiSelection(false);
-          }}
-        />
-      )}
+      setStrokes((prev) => [...prev, newStroke]);
+      setStrokeCount((prev) => prev + 1);
+      setLastStrokeX(stroke.points[stroke.points.length - 1].x);
+      setLastStrokeY(stroke.points[stroke.points.length - 1].y);
+    },
+    [sessionState.isConnected, toast]
+  );
 
-      {/* Start Window Overlay */}
-      {!showEmojiSelection && !isStarted && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center">
-            <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Welcome to MultiPainteR
+  useEffect(() => {
+    if (sessionState.isConnected) {
+      setCurrentPlayerId(sessionState.playerId);
+      setCurrentPlayerEmoji(sessionState.selectedEmoji);
+    }
+  }, [sessionState.isConnected, sessionState.playerId, sessionState.selectedEmoji]);
+
+  useEffect(() => {
+    if (sessionState.isKicked) {
+      toast({
+        title: 'Kicked',
+        description: `You were kicked from the server. Reason: ${sessionState.kickReason}`,
+      });
+    }
+  }, [sessionState.isKicked, sessionState.kickReason, toast]);
+
+  useEffect(() => {
+    if (sessionState.isConnected) {
+      updatePaintState(paintState.color, paintState.tool, paintState.size);
+    }
+  }, [paintState.color, paintState.tool, paintState.size, sessionState.isConnected, updatePaintState]);
+
+  // Show welcome screen with selected emoji in title
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+        <div className="text-center space-y-8 max-w-md mx-auto">
+          <div className="space-y-4">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Welcome {sessionState.selectedEmoji || ''} to MultiPainteR
             </h1>
-            <p className="text-muted-foreground mb-6">
-              A collaborative painting experience on a massive 100 million pixel canvas!
+            <p className="text-muted-foreground text-lg">
+              A collaborative infinite canvas where creativity meets community
             </p>
-            
-            <div className="bg-muted/50 rounded-lg p-4 mb-6">
-              <div className="text-sm mb-2">
-                <span className="text-primary font-semibold">{sessionState.playerCount}</span> active painters
-                {sessionState.queueCount > 0 && (
-                  <span className="text-orange-500 block">
-                    +{sessionState.queueCount} waiting in queue
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Maximum 100 simultaneous painters
-              </div>
-            </div>
-            
-            <div className="space-y-4 mb-6">
-              <div className="text-sm text-muted-foreground">
-                🎨 Paint together with up to 100 others
-              </div>
-              <div className="text-sm text-muted-foreground">  
-                🗺️ Explore a world of 10,000 × 10,000 pixels
-              </div>
-              <div className="text-sm text-muted-foreground">
-                ✨ Use transparency and various brush sizes
-              </div>
-              <div className="text-sm text-muted-foreground">
-                ⏰ 10 minute painting sessions with 1 minute inactivity timeout
-              </div>
-            </div>
-            
-            <LivePreview playerCount={sessionState.playerCount} />
-            
-            <button
-              onClick={() => {
-                if (selectedEmoji) {
-                  console.log('Start Painting button clicked with emoji:', selectedEmoji);
-                  joinSession(selectedEmoji).then(success => {
-                    if (success) {
-                      setIsStarted(true);
-                    }
-                  });
-                } else {
-                  setShowEmojiSelection(true);
-                }
-              }}
-              disabled={!sessionState.canJoin}
-              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4"
+          </div>
+
+          <div className="space-y-4">
+            <Button
+              onClick={handleStartPainting}
+              size="lg"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-8 rounded-lg text-lg"
             >
-              {sessionState.canJoin ? (selectedEmoji ? `Start Painting ${selectedEmoji}` : 'Choose Emoji & Start') : 'Room Full - Join Queue'}
-            </button>
-            
-            {/* Timelapse Button - smaller and under start button with better separation */}
-            <button
-              onClick={async () => {
-                console.log('Timelapse button clicked');
-                if (selectedEmoji) {
-                  setIsTimeLapseOpen(true);
-                  
-                  // Also automatically start the session
-                  if (!isStarted && sessionState.canJoin) {
-                    console.log('Auto-starting painting session from timelapse');
-                    const success = await joinSession(selectedEmoji);
-                    if (success) {
-                      setIsStarted(true);
-                    }
-                  }
-                } else {
-                  setShowEmojiSelection(true);
-                }
-              }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400"
-            >
-              🎬 World Timelapse
-            </button>
+              Start Painting
+            </Button>
+
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className={`w-2 h-2 rounded-full ${sessionState.isConnected ? 'bg-green-500' : 'bg-muted'}`} />
+              <span>{sessionState.playerCount} painters online</span>
+              {sessionState.queueCount > 0 && (
+                <span className="text-amber-500">• {sessionState.queueCount} in queue</span>
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Queue Overlay */}
-      {!sessionState.canJoin && !sessionState.isConnected && isStarted && (
-        <QueueOverlay
-          playerCount={sessionState.playerCount}
-          queueCount={sessionState.queueCount}
-          queuePosition={sessionState.queuePosition}
-          onCancel={() => setIsStarted(false)}
-        />
-      )}
+  // Emoji selection overlay
+  if (showEmojiSelection) {
+    return (
+      <EmojiSelectionOverlay onEmojiSelect={handleEmojiSelect} />
+    );
+  }
 
-      {/* Kicked Overlay */}
-      {sessionState.isKicked && (
-        <KickedOverlay
-          reason={sessionState.kickReason}
-          sessionStrokeCount={sessionStrokeCount}
-          playerId={sessionState.playerId}
-          onRestart={() => {
+  // Kicked overlay
+  if (sessionState.isKicked) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-card border border-border rounded-lg p-8 max-w-md w-full mx-4 text-center">
+          <h1 className="text-3xl font-bold mb-4">You were kicked!</h1>
+          <p className="text-muted-foreground mb-6">
+            Reason: {sessionState.kickReason}
+          </p>
+          <Button onClick={() => {
             resetKick();
-            resetStrokeCount();
-            setIsStarted(false);
-            setSelectedEmoji(null);
-            setShowEmojiSelection(false);
-          }}
+            setShowWelcome(true);
+          }} className="w-full">
+            Back to Welcome Screen
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Queue overlay
+  if (sessionState.queuePosition > 0 && !sessionState.isConnected) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-card border border-border rounded-lg p-8 max-w-md w-full mx-4 text-center">
+          <h1 className="text-3xl font-bold mb-4">You are in the queue!</h1>
+          <p className="text-muted-foreground mb-6">
+            Position: {sessionState.queuePosition}
+          </p>
+          <p className="text-muted-foreground mb-6">
+            Please wait, you will be connected automatically.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Main painting interface
+  return (
+    <>
+      <PaintToolbar
+        paintState={paintState}
+        onPaintStateChange={setPaintState}
+        onToggleMinimap={() => setShowMinimap(!showMinimap)}
+      />
+
+      <WorldCanvas
+        paintState={paintState}
+        strokes={strokes}
+        onMove={handleMove}
+        onStroke={handleStroke}
+        strokeCount={strokeCount}
+        playerCount={sessionState.playerCount}
+        isConnected={sessionState.isConnected}
+        currentPlayerEmoji={currentPlayerEmoji}
+        currentPlayerId={currentPlayerId}
+      />
+
+      {showMinimap && (
+        <WorldMinimap
+          worldX={paintState.x}
+          worldY={paintState.y}
+          lastStrokeX={lastStrokeX}
+          lastStrokeY={lastStrokeY}
+          strokes={strokes}
+          currentPlayerId={currentPlayerId}
+          currentPlayerEmoji={currentPlayerEmoji}
+          onClose={() => setShowMinimap(false)}
         />
       )}
-
-      {isStarted && sessionState.isConnected && (
-        <>
-          {/* Main canvas area - centered with mobile margin */}
-          <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? 'mt-36' : ''}`}>
-            <WorldCanvas 
-              paintState={paintState}
-              strokes={canvasStrokes}
-              onMove={handleMove}
-              onStroke={handleStroke}
-              strokeCount={strokes.length}
-              playerCount={sessionState.playerCount}
-              isConnected={sessionState.isConnected}
-              currentPlayerEmoji={sessionState.selectedEmoji}
-              currentPlayerId={sessionState.playerId}
-            />
-          </div>
-
-          {/* Desktop UI */}
-          {!isMobile && (
-            <>
-              {/* Color picker - left side */}
-              <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10">
-                <ColorPicker 
-                  color={paintState.color}
-                  onColorChange={handleColorChange}
-                  size={paintState.size}
-                  onSizeChange={handleSizeChange}
-                  tool={paintState.tool}
-                />
-              </div>
-
-              {/* Toolbar - top */}
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
-                <ToolBar
-                  paintState={paintState}
-                  setPaintState={setPaintState}
-                  onInfoOpen={() => setIsInfoOpen(true)}
-                  onPlayOpen={() => setIsPlayOpen(true)}
-                  onMapOpen={() => setIsMapOpen(true)}
-                  strokeCount={strokes.length}
-                  onColorChange={handleColorChange}
-                  onSizeChange={handleSizeChange}
-                />
-              </div>
-
-            </>
-          )}
-
-          {/* Mobile UI */}
-          {isMobile && (
-            <MobileOverlay
-              paintState={paintState}
-              onColorChange={handleColorChange}
-              onToolChange={handleToolChange}
-              onSizeChange={handleSizeChange}
-              onMove={handleMove}
-                onInfoOpen={() => setIsInfoOpen(true)}
-                onPlayOpen={() => setIsPlayOpen(true)}
-                onMapOpen={() => setIsMapOpen(true)}
-              strokeCount={strokes.length}
-              playerCount={sessionState.playerCount}
-              isConnected={sessionState.isConnected}
-            />
-          )}
-
-          {/* Dialogs & Overlays */}
-          <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />
-          
-          <AnimationReplay 
-            strokes={canvasStrokes}
-            isOpen={isPlayOpen}
-            onClose={() => setIsPlayOpen(false)}
-          />
-
-          <TimeLapse
-            isOpen={isTimeLapseOpen}
-            onClose={() => setIsTimeLapseOpen(false)}
-          />
-
-          {/* World Map Overlay */}
-          {isMapOpen && (
-            <WorldMinimap
-              worldX={paintState.x}
-              worldY={paintState.y}
-              lastStrokeX={lastStrokePosition.x}
-              lastStrokeY={lastStrokePosition.y}
-              strokes={canvasStrokes}
-              currentPlayerId={sessionState.playerId || undefined}
-              currentPlayerEmoji={sessionState.selectedEmoji || undefined}
-              onClose={() => setIsMapOpen(false)}
-            />
-          )}
-        </>
-      )}
-    </div>
+    </>
   );
 };
 
