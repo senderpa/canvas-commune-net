@@ -102,28 +102,8 @@ export const usePlayerSession = () => {
     try {
       console.log('Attempting to join session...');
       
-      // Force aggressive cleanup first - retry multiple times if needed
-      for (let cleanupAttempt = 0; cleanupAttempt < 3; cleanupAttempt++) {
-        console.log(`Cleanup attempt ${cleanupAttempt + 1}`);
-        await cleanupPlayerSessions(playerId);
-        
-        // Wait for cleanup to propagate
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // Verify cleanup worked by checking if session exists
-        const { data: existingSession } = await supabase
-          .from('player_sessions')
-          .select('id')
-          .eq('player_id', playerId)
-          .single();
-          
-        if (!existingSession) {
-          console.log('Cleanup successful');
-          break;
-        }
-        
-        console.log('Session still exists, retrying cleanup...');
-      }
+      // First, clean up any existing sessions for this playerId
+      await cleanupPlayerSessions(playerId);
 
       // Check player count using secure function
       const { data: playerCountData, error: countError } = await supabase
@@ -421,23 +401,21 @@ export const usePlayerSession = () => {
       )
       .subscribe();
 
-    // Initial cleanup and player count refresh
-    const initialSetup = async () => {
-      await supabase.rpc('cleanup_inactive_sessions');
-      refreshPlayerCount();
-    };
-    initialSetup();
+    // Initial player count
+    refreshPlayerCount();
 
     // Set up activity heartbeat - more frequent to prevent timeouts
     if (sessionState.isConnected) {
       activityInterval = setInterval(updateActivity, 15000); // Every 15 seconds
     }
 
-    // Set up cleanup interval - run more frequently to prevent stale sessions
+    // Set up cleanup interval - much less aggressive to prevent premature kicks
     cleanupInterval = setInterval(async () => {
       try {
-        // Run cleanup more frequently to prevent stale session accumulation
-        await supabase.rpc('cleanup_inactive_sessions');
+        // Only run cleanup if player has been inactive for a while or if they're not currently connected
+        if (!sessionState.isConnected) {
+          await supabase.rpc('cleanup_inactive_sessions');
+        }
 
         // Check if current player session still exists (only if connected)
         if (sessionState.isConnected) {
@@ -480,7 +458,7 @@ export const usePlayerSession = () => {
       } catch (error) {
         console.error('Cleanup error:', error);
       }
-    }, 30000); // Every 30 seconds to keep counts accurate
+    }, 60000); // Every 60 seconds - much less aggressive
 
     return () => {
       // Cleanup subscriptions
