@@ -208,21 +208,19 @@ const Index = () => {
       {/* Start Window Overlay */}
       {isEmojiSelected && !isStarted && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center relative max-h-[90vh] overflow-y-auto">
-            {/* Emoji change button - positioned safely */}
-            <button
-              onClick={() => {
-                setIsEmojiSelected(false);
-                // Don't use session storage anymore
-              }}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-muted hover:bg-muted/80 border border-border flex items-center justify-center text-sm transition-colors z-10"
-              title="Change emoji"
-            >
-              {selectedEmoji}
-            </button>
-            
-            <h1 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent pr-12">
-              Welcome {selectedEmoji} to MultiPainteR
+          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center relative max-h-[90vh] overflow-y-auto">            
+            <h1 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Welcome <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsEmojiSelected(false);
+                }}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-muted/20 hover:bg-muted/40 border border-border/50 hover:border-border transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                title="Click to change emoji"
+              >
+                {selectedEmoji}
+              </button> to MultiPainteR
             </h1>
             <p className="text-muted-foreground mb-6">
               A collaborative painting experience on a massive 100 million pixel canvas!
@@ -270,7 +268,8 @@ const Index = () => {
                 }
               }}
               disabled={!sessionState.canJoin}
-              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4 cursor-pointer"
+              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4 cursor-pointer touch-manipulation"
+              style={{ pointerEvents: 'auto' }}
             >
               {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
             </button>
@@ -292,7 +291,8 @@ const Index = () => {
                   }
                 }
               }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400 cursor-pointer"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400 cursor-pointer touch-manipulation"
+              style={{ pointerEvents: 'auto' }}
             >
               🎬 World Timelapse
             </button>
