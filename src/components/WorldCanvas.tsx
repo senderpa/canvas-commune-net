@@ -11,7 +11,7 @@ interface Stroke {
   points: { x: number; y: number }[];
   color: string;
   size: number;
-  tool: 'brush' | 'eraser';
+  tool: 'brush';
   timestamp: number;
 }
 
@@ -53,12 +53,6 @@ const WorldCanvas = ({
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
   const edgePanRef = useRef<number>();
   
-  // Hand tool navigation state
-  const isHandDraggingRef = useRef(false);
-  const lastHandPositionRef = useRef({ x: 0, y: 0 });
-  const handMomentumRef = useRef({ vx: 0, vy: 0 });
-  const handMomentumAnimationRef = useRef<number>();
-  
   // Smooth edge panning state
   const edgePanVelocityRef = useRef({ x: 0, y: 0 });
   const lastEdgePanTimeRef = useRef(0);
@@ -81,24 +75,6 @@ const WorldCanvas = ({
     const dynamicSize = Math.min(baseSize + strokeCount, maxSize);
     return dynamicSize;
   }, [strokeCount]);
-
-  // Hand tool momentum animation
-  const animateHandMomentum = useCallback(() => {
-    const momentum = handMomentumRef.current;
-    const friction = 0.92; // Smoother deceleration
-    const minVelocity = 0.5;
-    
-    if (Math.abs(momentum.vx) > minVelocity || Math.abs(momentum.vy) > minVelocity) {
-      onMove(momentum.vx, momentum.vy);
-      
-      momentum.vx *= friction;
-      momentum.vy *= friction;
-      
-      handMomentumAnimationRef.current = requestAnimationFrame(animateHandMomentum);
-    } else {
-      handMomentumRef.current = { vx: 0, vy: 0 };
-    }
-  }, [onMove]);
 
   // Smooth edge panning when painting near borders
   const handleEdgePanning = useCallback((clientX: number, clientY: number) => {
@@ -164,9 +140,6 @@ const WorldCanvas = ({
     return () => {
       if (edgePanRef.current) {
         cancelAnimationFrame(edgePanRef.current);
-      }
-      if (handMomentumAnimationRef.current) {
-        cancelAnimationFrame(handMomentumAnimationRef.current);
       }
     };
   }, []);
@@ -335,29 +308,8 @@ const WorldCanvas = ({
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
-    if (!point) return;
+    if (!point || !isDrawingEnabled) return;
 
-    if (paintState.tool === 'hand') {
-      // Hand tool - start dragging
-      isHandDraggingRef.current = true;
-      lastHandPositionRef.current = { x: e.clientX, y: e.clientY };
-      handMomentumRef.current = { vx: 0, vy: 0 };
-      
-      // Stop any existing momentum
-      if (handMomentumAnimationRef.current) {
-        cancelAnimationFrame(handMomentumAnimationRef.current);
-      }
-      
-      const canvas = canvasRef.current;
-      if (canvas) {
-        canvas.setPointerCapture(e.pointerId);
-      }
-      return;
-    }
-
-    if (!isDrawingEnabled) return;
-
-    // Brush tool
     isDrawingRef.current = true;
     const worldPos = viewportToWorld(point.x, point.y);
     currentStrokeRef.current = [worldPos];
@@ -369,7 +321,7 @@ const WorldCanvas = ({
 
     // Re-render to show initial point
     renderStrokes();
-  }, [getCanvasPoint, viewportToWorld, renderStrokes, isDrawingEnabled, paintState.tool]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes, isDrawingEnabled]);
 
   // Throttle collision detection to improve performance
   const lastCollisionCheck = useRef(0);
@@ -379,25 +331,6 @@ const WorldCanvas = ({
     if (!point) return;
     
     const worldPos = viewportToWorld(point.x, point.y);
-    
-    // Handle hand tool dragging
-    if (paintState.tool === 'hand' && isHandDraggingRef.current) {
-      const deltaX = e.clientX - lastHandPositionRef.current.x;
-      const deltaY = e.clientY - lastHandPositionRef.current.y;
-      
-      // Faster movement for hand tool (2x speed)
-      const moveSpeed = 2;
-      const moveX = -deltaX * moveSpeed;
-      const moveY = -deltaY * moveSpeed;
-      
-      onMove(moveX, moveY);
-      
-      // Track momentum for smooth deceleration
-      handMomentumRef.current = { vx: moveX * 0.3, vy: moveY * 0.3 };
-      
-      lastHandPositionRef.current = { x: e.clientX, y: e.clientY };
-      return;
-    }
     
     // Update emoji position - constrain to canvas bounds with smooth lerp
     const canvasSize = getCanvasSize();
@@ -481,21 +414,9 @@ const WorldCanvas = ({
 
     // Handle edge panning while drawing
     handleEdgePanning(e.clientX, e.clientY);
-  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, onMouseMove, onCollision, lastHitTime, getCanvasSize, currentSessionToken, emojiPosition, onMove]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, onMouseMove, onCollision, lastHitTime, getCanvasSize, currentSessionToken, emojiPosition]);
 
   const handlePointerUp = useCallback(() => {
-    // Handle hand tool momentum
-    if (paintState.tool === 'hand' && isHandDraggingRef.current) {
-      isHandDraggingRef.current = false;
-      
-      // Start momentum animation if there's significant velocity
-      const momentum = handMomentumRef.current;
-      if (Math.abs(momentum.vx) > 1 || Math.abs(momentum.vy) > 1) {
-        animateHandMomentum();
-      }
-      return;
-    }
-
     if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
       // Send complete stroke (only for brush tool)
       onStroke({
@@ -517,7 +438,7 @@ const WorldCanvas = ({
       cancelAnimationFrame(edgePanRef.current);
       edgePanRef.current = undefined;
     }
-  }, [onStroke, paintState, animateHandMomentum]);
+  }, [onStroke, paintState]);
 
   return (
     <>
@@ -534,10 +455,7 @@ const WorldCanvas = ({
           {/* Main canvas - responsive and centered */}
           <canvas
             ref={canvasRef}
-            className={`border-2 border-border rounded-lg shadow-2xl max-w-full max-h-[70vh] w-auto h-auto ${
-              paintState.tool === 'hand' ? 'cursor-grab active:cursor-grabbing' : 
-              isDrawingEnabled ? 'cursor-crosshair' : 'cursor-grab'
-            }`}
+            className={`border-2 border-border rounded-lg shadow-2xl max-w-full max-h-[70vh] w-auto h-auto ${isDrawingEnabled ? 'cursor-crosshair' : 'cursor-grab'}`}
             style={{ 
               aspectRatio: '1 / 1',
               maxWidth: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))',

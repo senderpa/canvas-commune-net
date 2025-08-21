@@ -6,7 +6,7 @@ interface LivePreviewProps {
   playerCount: number;
 }
 
-const LivePreview = ({ playerCount }: LivePreviewProps) => {
+export const LivePreview = ({ playerCount }: LivePreviewProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { strokes } = useRealTimeStrokes();
   const { otherPlayers } = useOtherPlayers();
@@ -137,5 +137,3 @@ const LivePreview = ({ playerCount }: LivePreviewProps) => {
     </div>
   );
 };
-
-export default LivePreview;

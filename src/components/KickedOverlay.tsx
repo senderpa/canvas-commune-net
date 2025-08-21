@@ -1,11 +1,10 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import EmojiPicker from './EmojiPicker';
 import { useHighscores } from '@/hooks/useHighscores';
 
 interface KickedOverlayProps {
-  reason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | 'hits' | null;
+  reason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | null;
   onRestart: () => void;
   sessionStrokeCount?: number;
   playerId?: string;
@@ -19,7 +18,7 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
   const { submitHighscore } = useHighscores();
 
-  const canSubmitHighscore = sessionStrokeCount >= 999 && playerId && !scoreSubmitted && (reason === 'timeout' || reason === 'inactivity' || reason === 'hits');
+  const canSubmitHighscore = sessionStrokeCount >= 999 && playerId && !scoreSubmitted && (reason === 'timeout' || reason === 'inactivity');
 
   const handleEmojiSelect = (emoji: string) => {
     if (selectedEmojis.includes(emoji)) {
@@ -49,7 +48,6 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
     setScoreSubmitted(false);
     onRestart();
   };
-  
   const getReasonInfo = () => {
     switch (reason) {
       case 'timeout':
@@ -63,12 +61,6 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
           title: "Inactive Session",
           message: "You were removed due to 5 minutes of inactivity.",
           icon: "😴"
-        };
-      case 'hits':
-        return {
-          title: "Game Over",
-          message: "You were hit 3 times by other players and eliminated from the session.",
-          icon: "💥"
         };
       case 'full':
         return {
@@ -107,7 +99,7 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
         </p>
         
         {/* Session Stats Display */}
-        {sessionStrokeCount > 0 && (reason === 'timeout' || reason === 'inactivity' || reason === 'hits') && (
+        {sessionStrokeCount > 0 && (reason === 'timeout' || reason === 'inactivity') && (
           <div className="bg-muted/20 rounded-lg p-4 mb-4">
             <div className="text-base md:text-lg font-semibold">Your Session Stats</div>
             <div className="text-2xl md:text-3xl font-bold text-primary">{sessionStrokeCount}</div>
@@ -163,12 +155,11 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
         )}
         
         <div className="bg-muted/50 rounded-lg p-4 mb-6">
-          <h3 className="text-sm md:text-base font-semibold mb-2">Session Rules:</h3>
+          <h3 className="text-sm md:text-base font-semibold mb-2">Session Limits:</h3>
           <ul className="text-xs md:text-sm text-muted-foreground space-y-1">
             <li>• Maximum 60 minutes per session</li>
             <li>• Automatic timeout after 5 minutes of inactivity</li>
             <li>• Maximum 100 simultaneous painters</li>
-            <li>• Get eliminated after being hit 3 times</li>
           </ul>
         </div>
 
