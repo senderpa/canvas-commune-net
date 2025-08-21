@@ -33,15 +33,14 @@ export const useHighscores = () => {
     }
   }, []);
 
-  const submitHighscore = useCallback(async (emojiId: string, strokeCount: number, playerId: string, sessionToken?: string) => {
+  const submitHighscore = useCallback(async (emojiId: string, strokeCount: number, playerId: string) => {
     try {
       const { error } = await supabase
         .from('highscores')
         .insert({
           emoji_id: emojiId,
           stroke_count: strokeCount,
-          player_id: playerId,
-          session_token: sessionToken
+          player_id: playerId
         });
 
       if (error) throw error;

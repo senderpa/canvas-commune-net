@@ -47,26 +47,27 @@ const Index = () => {
     ...initialPosition
   });
   
-  const [selectedEmoji, setSelectedEmoji] = useState<string>(''); // Always start empty - no session storage
-  const [isEmojiSelected, setIsEmojiSelected] = useState(false); // Always start false
+  const [selectedEmoji, setSelectedEmoji] = useState<string>(() => {
+    // Load from session storage if available
+    return sessionStorage.getItem('selectedEmoji') || '';
+  });
+  const [isEmojiSelected, setIsEmojiSelected] = useState(() => {
+    // Check if emoji was already selected in this session
+    return sessionStorage.getItem('selectedEmoji') !== null;
+  });
   const [isStarted, setIsStarted] = useState(false);
   const [userMousePosition, setUserMousePosition] = useState({ x: 0, y: 0 });
   const [collisionCount, setCollisionCount] = useState(0);
   
-  // Reset when session ends or user gets kicked
+  // Generate new random color on each session start
   useEffect(() => {
-    if (sessionState.isKicked || (!sessionState.isConnected && isStarted)) {
-      console.log('Session ended - resetting state');
-      setIsStarted(false);
-      setIsEmojiSelected(false);
-      setSelectedEmoji('');
-      setCollisionCount(0);
-      // Generate new color for next session
+    if (isStarted && sessionState.isConnected) {
       const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
       const newColor = colors[Math.floor(Math.random() * colors.length)];
       setPaintState(prev => ({ ...prev, color: newColor }));
+      console.log('Random color generated on session start:', newColor);
     }
-  }, [sessionState.isKicked, sessionState.isConnected, isStarted]);
+  }, [isStarted, sessionState.isConnected]);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
   const [isTimeLapseOpen, setIsTimeLapseOpen] = useState(false);
@@ -130,8 +131,7 @@ const Index = () => {
         size: stroke.size,
         tool: stroke.tool,
         world_x: Math.floor(avgX),
-        world_y: Math.floor(avgY),
-        session_token: sessionState.sessionToken
+        world_y: Math.floor(avgY)
       });
       
       // Increment session stroke count
@@ -142,7 +142,7 @@ const Index = () => {
     }
   }, [addStroke, updateActivity, sessionState.playerId, incrementStrokeCount]);
 
-  // Smooth lerp movement with improved performance
+  // Smooth lerp movement
   useEffect(() => {
     const lerp = (start: number, end: number, factor: number) => {
       return start + (end - start) * factor;
@@ -152,13 +152,12 @@ const Index = () => {
     
     const updatePosition = () => {
       setPaintState(prev => {
-        const lerpFactor = 0.15; // Slightly faster movement for better responsiveness
+        const lerpFactor = 0.1; // Smooth movement speed
         const newX = lerp(prev.x, targetPosition.x, lerpFactor);
         const newY = lerp(prev.y, targetPosition.y, lerpFactor);
         
-        // Use a smaller threshold for smoother movement
-        const threshold = 0.5;
-        if (Math.abs(newX - targetPosition.x) > threshold || Math.abs(newY - targetPosition.y) > threshold) {
+        // Continue animation if not close enough
+        if (Math.abs(newX - targetPosition.x) > 1 || Math.abs(newY - targetPosition.y) > 1) {
           animationFrame = requestAnimationFrame(updatePosition);
         }
         
@@ -196,32 +195,21 @@ const Index = () => {
         overscrollBehavior: 'none'
       }}
     >
-      {/* Emoji Selection Overlay - First Screen - Always shown when not selected */}
+      {/* Emoji Selection Overlay - First Screen */}
       {!isEmojiSelected && (
         <EmojiSelectionOverlay onEmojiSelected={(emoji) => {
           setSelectedEmoji(emoji);
           setIsEmojiSelected(true);
-          // Don't save to session storage - force selection each time
+          // Save to session storage
+          sessionStorage.setItem('selectedEmoji', emoji);
         }} />
       )}
 
       {/* Start Window Overlay */}
       {isEmojiSelected && !isStarted && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center relative max-h-[90vh] overflow-y-auto">
-            {/* Emoji change button - positioned safely */}
-            <button
-              onClick={() => {
-                setIsEmojiSelected(false);
-                // Don't use session storage anymore
-              }}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-muted hover:bg-muted/80 border border-border flex items-center justify-center text-sm transition-colors z-10"
-              title="Change emoji"
-            >
-              {selectedEmoji}
-            </button>
-            
-            <h1 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent pr-12">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center">
+            <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Welcome {selectedEmoji} to MultiPainteR
             </h1>
             <p className="text-muted-foreground mb-6">
@@ -260,9 +248,7 @@ const Index = () => {
             <LivePreview playerCount={sessionState.playerCount} />
             
             <button
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+              onClick={async () => {
                 console.log('Start Painting button clicked');
                 const success = await joinSession();
                 if (success) {
@@ -270,16 +256,14 @@ const Index = () => {
                 }
               }}
               disabled={!sessionState.canJoin}
-              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4 cursor-pointer"
+              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4"
             >
               {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
             </button>
             
             {/* Timelapse Button - smaller and under start button with better separation */}
             <button
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+              onClick={async () => {
                 console.log('Timelapse button clicked');
                 setIsTimeLapseOpen(true);
                 
@@ -292,7 +276,7 @@ const Index = () => {
                   }
                 }
               }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400 cursor-pointer"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400"
             >
               🎬 World Timelapse
             </button>
@@ -316,7 +300,6 @@ const Index = () => {
           reason={sessionState.kickReason}
           sessionStrokeCount={sessionStrokeCount}
           playerId={sessionState.playerId}
-          sessionToken={sessionState.sessionToken}
           onRestart={() => {
             resetKick();
             resetStrokeCount();
@@ -342,15 +325,14 @@ const Index = () => {
               onMouseMove={setUserMousePosition}
               collisionCount={collisionCount}
               isDrawingEnabled={paintState.tool === 'brush'}
-              currentSessionToken={sessionState.sessionToken}
+              currentPlayerId={sessionState.playerId}
               onCollision={() => {
                 setCollisionCount(prev => {
                   const newCount = prev + 1;
-                  // Increased collision threshold from 3 to 5 to prevent accidental kicks
-                  if (newCount >= 5) {
+                  if (newCount >= 3) {
                     // Play kick sound when getting kicked
                     soundEffects.playKickSound();
-                    // Disconnect user after 5 collisions instead of 3
+                    // Disconnect user after 3 collisions
                     leaveSession();
                     setIsStarted(false);
                   }
@@ -433,7 +415,7 @@ const Index = () => {
               lastStrokeX={lastStrokePosition.x}
               lastStrokeY={lastStrokePosition.y}
               strokes={canvasStrokes}
-              currentSessionToken={sessionState.sessionToken || undefined}
+              currentPlayerId={sessionState.playerId || undefined}
               selectedEmoji={selectedEmoji}
               onClose={() => setIsMapOpen(false)}
             />
