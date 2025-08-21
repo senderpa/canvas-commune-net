@@ -86,23 +86,23 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
   const { title, message, icon } = getReasonInfo();
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-      <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center">
-        <div className="text-6xl mb-4">{icon}</div>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center max-h-[90vh] overflow-y-auto">
+        <div className="text-4xl md:text-6xl mb-4">{icon}</div>
         
-        <h2 className="text-2xl font-bold mb-4 text-primary">
+        <h2 className="text-xl md:text-2xl font-bold mb-4 text-primary">
           {title}
         </h2>
         
-        <p className="text-muted-foreground mb-6">
+        <p className="text-sm md:text-base text-muted-foreground mb-6">
           {message}
         </p>
         
         {/* Session Stats Display */}
         {sessionStrokeCount > 0 && (reason === 'timeout' || reason === 'inactivity') && (
           <div className="bg-muted/20 rounded-lg p-4 mb-4">
-            <div className="text-lg font-semibold">Your Session Stats</div>
-            <div className="text-3xl font-bold text-primary">{sessionStrokeCount}</div>
+            <div className="text-base md:text-lg font-semibold">Your Session Stats</div>
+            <div className="text-2xl md:text-3xl font-bold text-primary">{sessionStrokeCount}</div>
             <div className="text-sm text-muted-foreground">strokes painted</div>
           </div>
         )}
@@ -110,7 +110,7 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
         {/* Highscore submission section */}
         {canSubmitHighscore && !showEmojiPicker && (
           <div className="mb-6 p-4 bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 border border-yellow-500/30 rounded-lg">
-            <div className="text-lg font-semibold mb-2">🏆 Congratulations!</div>
+            <div className="text-base md:text-lg font-semibold mb-2">🏆 Congratulations!</div>
             <p className="text-sm mb-3">You painted {sessionStrokeCount} strokes! Save your score to the leaderboard!</p>
             <Button 
               onClick={() => setShowEmojiPicker(true)}
@@ -123,7 +123,7 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
 
         {scoreSubmitted && (
           <div className="mb-6 p-4 bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/30 rounded-lg">
-            <div className="text-lg font-semibold mb-2">✅ Score Submitted!</div>
+            <div className="text-base md:text-lg font-semibold mb-2">✅ Score Submitted!</div>
             <p className="text-sm">Your score has been added to the leaderboard!</p>
           </div>
         )}
@@ -155,8 +155,8 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
         )}
         
         <div className="bg-muted/50 rounded-lg p-4 mb-6">
-          <h3 className="font-semibold mb-2">Session Limits:</h3>
-          <ul className="text-sm text-muted-foreground space-y-1">
+          <h3 className="text-sm md:text-base font-semibold mb-2">Session Limits:</h3>
+          <ul className="text-xs md:text-sm text-muted-foreground space-y-1">
             <li>• Maximum 60 minutes per session</li>
             <li>• Automatic timeout after 5 minutes of inactivity</li>
             <li>• Maximum 100 simultaneous painters</li>

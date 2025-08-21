@@ -209,21 +209,21 @@ const Index = () => {
 
       {/* Start Window Overlay */}
       {isEmojiSelected && !isStarted && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center relative">
-            {/* Emoji change button */}
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center relative max-h-[90vh] overflow-y-auto">
+            {/* Emoji change button - positioned safely */}
             <button
               onClick={() => {
                 setIsEmojiSelected(false);
                 sessionStorage.removeItem('selectedEmoji');
               }}
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-muted hover:bg-muted/80 border border-border flex items-center justify-center text-lg transition-colors"
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-muted hover:bg-muted/80 border border-border flex items-center justify-center text-sm transition-colors z-10"
               title="Change emoji"
             >
               {selectedEmoji}
             </button>
             
-            <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <h1 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent pr-12">
               Welcome {selectedEmoji} to MultiPainteR
             </h1>
             <p className="text-muted-foreground mb-6">

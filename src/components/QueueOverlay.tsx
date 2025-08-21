@@ -20,18 +20,18 @@ const QueueOverlay = ({ playerCount, queueCount, queuePosition, onCancel }: Queu
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-      <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center max-h-[90vh] overflow-y-auto">
         <div className="w-16 h-16 mx-auto mb-6 bg-primary/20 rounded-full flex items-center justify-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
         
-        <h2 className="text-2xl font-bold mb-4 text-primary">
+        <h2 className="text-xl md:text-2xl font-bold mb-4 text-primary">
           MultiPainter is Full!
         </h2>
         
         <div className="space-y-4 mb-6 text-muted-foreground">
-          <p>
+          <p className="text-sm md:text-base">
             All <span className="font-semibold text-primary">100 painting slots</span> are currently occupied.
           </p>
           
