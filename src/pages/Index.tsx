@@ -49,6 +49,8 @@ const Index = () => {
   const [selectedEmoji, setSelectedEmoji] = useState<string>('🎨'); // Default emoji
   const [isEmojiSelected, setIsEmojiSelected] = useState(true); // Always true now
   const [isStarted, setIsStarted] = useState(false);
+  const [autoStartTimer, setAutoStartTimer] = useState<number | null>(null);
+  const [autoStartCountdown, setAutoStartCountdown] = useState<number>(9);
   const [userMousePosition, setUserMousePosition] = useState({ x: 0, y: 0 });
   const [collisionCount, setCollisionCount] = useState(0);
   
@@ -172,6 +174,40 @@ const Index = () => {
     };
   }, [targetPosition]);
 
+  // Auto-start timer effect
+  useEffect(() => {
+    let timer: number;
+    let countdownTimer: number;
+    
+    if (!isStarted && sessionState.canJoin) {
+      setAutoStartCountdown(9);
+      
+      // Countdown timer
+      const countdown = () => {
+        setAutoStartCountdown(prev => {
+          if (prev <= 1) {
+            // Auto start when countdown reaches 0
+            joinSession().then(success => {
+              if (success) {
+                setIsStarted(true);
+                console.log('Auto-started session');
+              }
+            });
+            return 0;
+          }
+          return prev - 1;
+        });
+      };
+      
+      countdownTimer = window.setInterval(countdown, 1000);
+      
+      return () => {
+        if (countdownTimer) clearInterval(countdownTimer);
+        if (timer) clearTimeout(timer);
+      };
+    }
+  }, [isStarted, sessionState.canJoin, joinSession]);
+
   // Convert real-time strokes to canvas format (filter out eraser strokes)
   const canvasStrokes = strokes
     .filter(stroke => stroke.tool === 'brush') // Only show brush strokes
@@ -268,6 +304,15 @@ const Index = () => {
             
             <LivePreview playerCount={sessionState.playerCount} />
             
+            {/* Auto-start countdown */}
+            {sessionState.canJoin && autoStartCountdown > 0 && (
+              <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                <div className="text-sm text-blue-300">
+                  Auto-starting in {autoStartCountdown} seconds...
+                </div>
+              </div>
+            )}
+            
             {/* Action Buttons */}
             <div className="space-y-3">
               <button
@@ -275,6 +320,7 @@ const Index = () => {
                   console.log('START BUTTON CLICKED!', e);
                   e.preventDefault();
                   e.stopPropagation();
+                  setAutoStartCountdown(0); // Stop auto-start
                   console.log('Start Painting button clicked, canJoin:', sessionState.canJoin);
                   const success = await joinSession();
                   console.log('joinSession result:', success);

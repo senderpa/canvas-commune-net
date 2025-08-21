@@ -93,16 +93,18 @@ export const usePlayerSession = () => {
         player_id_value: playerId
       });
       
-      // Single cleanup attempt
+      // Single cleanup attempt with UPSERT approach
       try {
+        // Delete any existing sessions first
         await supabase.from('player_sessions').delete().eq('player_id', playerId);
         await supabase.from('player_queue').delete().eq('player_id', playerId);
+        console.log('Cleanup completed');
+        
+        // Wait longer for cleanup
+        await new Promise(resolve => setTimeout(resolve, 1500));
       } catch (cleanupError) {
         console.log('Cleanup error (continuing anyway):', cleanupError);
       }
-      
-      // Wait for cleanup
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Check room capacity  
       const { data: playerCountData } = await supabase.rpc('get_active_player_count');
