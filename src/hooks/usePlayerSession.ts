@@ -184,8 +184,8 @@ export const usePlayerSession = () => {
     }
   }, [sessionState.isConnected, sessionState.sessionToken]);
 
-  // Update paint state
-  const updatePaintState = useCallback(async (color?: string, tool?: string, size?: number) => {
+  // Update paint state with emoji validation
+  const updatePaintState = useCallback(async (color?: string, tool?: string, size?: number, emoji?: string) => {
     if (!sessionState.isConnected || !sessionState.sessionToken) return;
 
     try {
@@ -193,6 +193,20 @@ export const usePlayerSession = () => {
       if (color !== undefined) updates.current_color = color;
       if (tool !== undefined) updates.current_tool = tool;
       if (size !== undefined) updates.current_size = size;
+      
+      // Validate emoji if provided
+      if (emoji !== undefined) {
+        const emojiValidation = await supabase.rpc('validate_emoji', {
+          p_emoji: emoji
+        });
+        
+        if (emojiValidation.error || !emojiValidation.data) {
+          console.error('Invalid emoji provided');
+          return;
+        }
+        
+        updates.selected_emoji = emoji;
+      }
 
       await supabase
         .from('player_sessions')
