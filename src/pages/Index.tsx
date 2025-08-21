@@ -1,441 +1,312 @@
-import { useState, useCallback, useEffect } from 'react';
-import WorldCanvas from '@/components/WorldCanvas';
-import ColorPicker from '@/components/ColorPicker';
-import ToolBar from '@/components/ToolBar';
-import PlayerStats from '@/components/PlayerStats';
-import InfoDialog from '@/components/InfoDialog';
-import AnimationReplay from '@/components/AnimationReplay';
-import WorldMinimap from '@/components/WorldMinimap';
-import MobileOverlay from '@/components/MobileOverlay';
-import QueueOverlay from '@/components/QueueOverlay';
-import KickedOverlay from '@/components/KickedOverlay';
-import { LivePreview } from '@/components/LivePreview';
-import TimeLapse from '@/components/TimeLapse';
-import EmojiSelectionOverlay from '@/components/EmojiSelectionOverlay';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { useSearchParams } from 'next/navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from "@/hooks/use-toast"
+import { 
+  EmojiSelectionOverlay, 
+  QueueOverlay, 
+  KickedOverlay, 
+  WorldCanvas, 
+  ToolBar, 
+  MobileOverlay, 
+  InfoDialog, 
+  AnimationReplay,
+  WorldMinimap,
+  LivePreview,
+  PlayerStats
+} from '@/components';
+import { Toaster } from "@/components/ui/toaster"
 import { usePlayerSession } from '@/hooks/usePlayerSession';
-import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
-import { useSessionStrokeCount } from '@/hooks/useSessionStrokeCount';
-import { soundEffects } from '@/utils/soundEffects';
 
 export type Tool = 'brush' | 'hand';
 
 export interface PaintState {
-  color: string;
-  tool: Tool;
-  size: number;
-  x: number; // Current viewport position in world coordinates
+  x: number;
   y: number;
+  color: string;
+  size: number;
+  tool: Tool;
+}
+
+interface Stroke {
+  id: string;
+  points: { x: number; y: number }[];
+  color: string;
+  size: number;
+  tool: 'brush' | 'eraser';
+  timestamp: number;
 }
 
 const Index = () => {
-  const isMobile = useIsMobile();
-  const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, updatePaintState, resetKick } = usePlayerSession();
-  const { strokes, isLoading: strokesLoading, addStroke } = useRealTimeStrokes();
-  const { sessionStrokeCount, incrementStrokeCount, resetStrokeCount } = useSessionStrokeCount(sessionState.playerId, sessionState.isConnected);
-  
-  // Generate random starting position and color (updated)
-  const [initialPosition] = useState(() => ({
-    x: Math.floor(Math.random() * (10000 - 512)),
-    y: Math.floor(Math.random() * (10000 - 512))
-  }));
-  
   const [paintState, setPaintState] = useState<PaintState>({
-    color: '#ff0080', // Will be overridden by useEffect
-    tool: 'brush', // Default to brush mode
-    size: 3,
-    ...initialPosition
+    x: 5000,
+    y: 5000,
+    color: '#ff0080',
+    size: 5,
+    tool: 'brush'
   });
-  
-  const [selectedEmoji, setSelectedEmoji] = useState<string>(''); // Always start empty - no session storage
-  const [isEmojiSelected, setIsEmojiSelected] = useState(false); // Always start false
-  const [isStarted, setIsStarted] = useState(false);
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [playerCount, setPlayerCount] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [showMinimap, setShowMinimap] = useState(false);
+  const [showLivePreview, setShowLivePreview] = useState(false);
+  const [selectedEmoji, setSelectedEmoji] = useState('');
+  const [showEmojiSelector, setShowEmojiSelector] = useState(true);
   const [userMousePosition, setUserMousePosition] = useState({ x: 0, y: 0 });
-  const [collisionCount, setCollisionCount] = useState(0);
-  
-  // Reset when session ends or user gets kicked
+  const isMobile = useIsMobile();
+  const searchParams = useSearchParams();
+  const { toast } = useToast()
+
+  const { 
+    isActive, 
+    sessionToken, 
+    playerId,
+    collisionCount, 
+    kickReason, 
+    joinSession, 
+    leaveSession, 
+    handleCollision,
+    sessionStrokeCount 
+  } = usePlayerSession();
+
+  // Connection status
   useEffect(() => {
-    if (sessionState.isKicked || (!sessionState.isConnected && isStarted)) {
-      console.log('Session ended - resetting state');
-      setIsStarted(false);
-      setIsEmojiSelected(false);
-      setSelectedEmoji('');
-      setCollisionCount(0);
-      // Generate new color for next session
-      const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
-      const newColor = colors[Math.floor(Math.random() * colors.length)];
-      setPaintState(prev => ({ ...prev, color: newColor }));
-    }
-  }, [sessionState.isKicked, sessionState.isConnected, isStarted]);
-  const [isInfoOpen, setIsInfoOpen] = useState(false);
-  const [isPlayOpen, setIsPlayOpen] = useState(false);
-  const [isTimeLapseOpen, setIsTimeLapseOpen] = useState(false);
-  const [isMapOpen, setIsMapOpen] = useState(false);
-  const [targetPosition, setTargetPosition] = useState(initialPosition);
-  const [lastStrokePosition, setLastStrokePosition] = useState(initialPosition);
-  
-  const handleColorChange = useCallback((color: string) => {
-    setPaintState(prev => ({ ...prev, color }));
-    updatePaintState(color, undefined, undefined);
-  }, [updatePaintState]);
-  
-  const handleToolChange = useCallback((tool: Tool) => {
-    setPaintState(prev => ({ ...prev, tool }));
-    updatePaintState(undefined, tool, undefined);
-  }, [updatePaintState]);
-  
-  const handleSizeChange = useCallback((size: number) => {
-    setPaintState(prev => ({ ...prev, size }));
-    updatePaintState(undefined, undefined, size);
-  }, [updatePaintState]);
-  
-  const handleMove = useCallback((deltaX: number, deltaY: number) => {
-    setTargetPosition(prev => {
-      const newPos = {
-        x: Math.max(0, Math.min(10000 - 512, prev.x + deltaX)),
-        y: Math.max(0, Math.min(10000 - 512, prev.y + deltaY))
-      };
-      
-      // Update position in database
-      updatePosition(newPos.x, newPos.y);
-      
-      return newPos;
-    });
-  }, [updatePosition]);
+    setIsConnected(isActive);
+  }, [isActive]);
 
-  const handleStroke = useCallback(async (stroke: {
-    points: { x: number; y: number }[];
-    color: string;
-    size: number;
-    tool: 'brush';
-  }) => {
-    // Ensure all stroke points are within world bounds
-    const validPoints = stroke.points.filter(point => 
-      point.x >= 0 && point.x < 10000 && point.y >= 0 && point.y < 10000
-    );
-    
-    if (validPoints.length > 0 && sessionState.playerId) {
-      // Track the last stroke position (end of last stroke)
-      const lastPoint = validPoints[validPoints.length - 1];
-      setLastStrokePosition({ x: lastPoint.x, y: lastPoint.y });
-      
-      // Calculate world position for the stroke (center point)
-      const avgX = validPoints.reduce((sum, p) => sum + p.x, 0) / validPoints.length;
-      const avgY = validPoints.reduce((sum, p) => sum + p.y, 0) / validPoints.length;
-      
-      await addStroke({
-        player_id: sessionState.playerId,
-        points: validPoints,
-        color: stroke.color,
-        size: stroke.size,
-        tool: stroke.tool,
-        world_x: Math.floor(avgX),
-        world_y: Math.floor(avgY),
-        session_token: sessionState.sessionToken
-      });
-      
-      // Increment session stroke count
-      incrementStrokeCount();
-      
-      // Update activity when painting
-      updateActivity();
-    }
-  }, [addStroke, updateActivity, sessionState.playerId, incrementStrokeCount]);
-
-  // Smooth lerp movement with improved performance
+  // Join session on mount if emoji is selected
   useEffect(() => {
-    const lerp = (start: number, end: number, factor: number) => {
-      return start + (end - start) * factor;
-    };
+    if (selectedEmoji && !isActive) {
+      joinSession(selectedEmoji);
+    }
+  }, [selectedEmoji, isActive, joinSession]);
 
-    let animationFrame: number;
-    
-    const updatePosition = () => {
-      setPaintState(prev => {
-        const lerpFactor = 0.15; // Slightly faster movement for better responsiveness
-        const newX = lerp(prev.x, targetPosition.x, lerpFactor);
-        const newY = lerp(prev.y, targetPosition.y, lerpFactor);
-        
-        // Use a smaller threshold for smoother movement
-        const threshold = 0.5;
-        if (Math.abs(newX - targetPosition.x) > threshold || Math.abs(newY - targetPosition.y) > threshold) {
-          animationFrame = requestAnimationFrame(updatePosition);
+  // Fetch initial player count on mount
+  useEffect(() => {
+    const fetchPlayerCount = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('painting_sessions')
+          .select('player_count')
+          .eq('id', 'global')
+          .single();
+
+        if (error) {
+          console.error('Error fetching player count:', error);
+        } else {
+          setPlayerCount(data?.player_count || 0);
         }
-        
-        return { ...prev, x: newX, y: newY };
-      });
-    };
-
-    updatePosition();
-    
-    return () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
+      } catch (error) {
+        console.error('Error fetching player count:', error);
       }
     };
-  }, [targetPosition]);
 
-  // Convert real-time strokes to canvas format (filter out eraser strokes)
-  const canvasStrokes = strokes
-    .filter(stroke => stroke.tool === 'brush') // Only show brush strokes
-    .map(stroke => ({
-      id: stroke.id,
-      points: stroke.points,
-      color: stroke.color,
-      size: stroke.size,
-      tool: 'brush' as const,
-      timestamp: new Date(stroke.created_at).getTime()
+    fetchPlayerCount();
+  }, []);
+
+  // Subscribe to player count changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('player_count')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'painting_sessions' }, payload => {
+        if (payload.new) {
+          setPlayerCount(payload.new.player_count);
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, []);
+
+  // Stroke management
+  const handleStroke = useCallback((stroke: Omit<Stroke, 'id' | 'timestamp'>) => {
+    const newStroke = { ...stroke, id: uuidv4(), timestamp: Date.now() };
+    setStrokes(prev => [...prev, newStroke]);
+  }, []);
+
+  // Movement
+  const handleMove = useCallback((deltaX: number, deltaY: number) => {
+    setPaintState(prev => ({
+      ...prev,
+      x: Math.max(0, Math.min(10000, prev.x + deltaX)),
+      y: Math.max(0, Math.min(10000, prev.y + deltaY))
     }));
+  }, []);
+
+  // Color change
+  const handleColorChange = useCallback((color: string) => {
+    setPaintState(prev => ({ ...prev, color }));
+  }, []);
+
+  // Size change
+  const handleSizeChange = useCallback((size: number) => {
+    setPaintState(prev => ({ ...prev, size }));
+  }, []);
+
+  // Tool change
+  const handleToolChange = useCallback((tool: Tool) => {
+    setPaintState(prev => ({ ...prev, tool }));
+  }, []);
+
+  const handleKickedRestart = () => {
+    // Reset all necessary state
+    setSelectedEmoji('');
+    setShowEmojiSelector(true);
+    setPaintState(prev => ({ ...prev, x: 5000, y: 5000 })); // Reset to center
+    setStrokes([]);
+    setUserMousePosition({ x: 0, y: 0 });
+    
+    // Small delay to ensure cleanup is complete
+    setTimeout(() => {
+      setShowEmojiSelector(true);
+    }, 2000);
+  };
+
+  // Handle URL parameters for live preview
+  useEffect(() => {
+    const preview = searchParams.get('preview');
+    if (preview === 'true') {
+      setShowLivePreview(true);
+    }
+  }, [searchParams]);
+
+  // Modify the kickReason handling to include 'hits'
+  useEffect(() => {
+    if (collisionCount >= 3) {
+      // Force leave session when hit 3 times - this should trigger 'hits' reason
+      leaveSession();
+    }
+  }, [collisionCount, leaveSession]);
 
   return (
-    <div 
-      className="min-h-screen w-full overflow-hidden fixed inset-0"
-      style={{ 
-        background: 'var(--background-gradient)',
-        touchAction: 'none',
-        overscrollBehavior: 'none'
-      }}
-    >
-      {/* Emoji Selection Overlay - First Screen - Always shown when not selected */}
-      {!isEmojiSelected && (
-        <EmojiSelectionOverlay onEmojiSelected={(emoji) => {
-          setSelectedEmoji(emoji);
-          setIsEmojiSelected(true);
-          // Don't save to session storage - force selection each time
-        }} />
-      )}
-
-      {/* Start Window Overlay */}
-      {isEmojiSelected && !isStarted && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center relative max-h-[90vh] overflow-y-auto">
-            {/* Emoji change button - positioned safely */}
-            <button
-              onClick={() => {
-                setIsEmojiSelected(false);
-                // Don't use session storage anymore
-              }}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-muted hover:bg-muted/80 border border-border flex items-center justify-center text-sm transition-colors z-10"
-              title="Change emoji"
-            >
-              {selectedEmoji}
-            </button>
-            
-            <h1 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent pr-12">
-              Welcome {selectedEmoji} to MultiPainteR
-            </h1>
-            <p className="text-muted-foreground mb-6">
-              A collaborative painting experience on a massive 100 million pixel canvas!
-            </p>
-            
-            <div className="bg-muted/50 rounded-lg p-4 mb-6">
-              <div className="text-sm mb-2">
-                <span className="text-primary font-semibold">{sessionState.playerCount}</span> active painters
-                {sessionState.queueCount > 0 && (
-                  <span className="text-orange-500 block">
-                    +{sessionState.queueCount} waiting in queue
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Maximum 100 simultaneous painters
-              </div>
-            </div>
-            
-            <div className="space-y-4 mb-6">
-              <div className="text-sm text-muted-foreground">
-                🎨 Paint together with up to 100 others
-              </div>
-              <div className="text-sm text-muted-foreground">  
-                🗺️ Explore a world of 10,000 × 10,000 pixels
-              </div>
-              <div className="text-sm text-muted-foreground">
-                ✨ Use transparency and various brush sizes
-              </div>
-              <div className="text-sm text-muted-foreground">
-                ⏰ 60 minute painting sessions with 5 minute inactivity timeout
-              </div>
-            </div>
-            
-            <LivePreview playerCount={sessionState.playerCount} />
-            
-            <button
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Start Painting button clicked');
-                const success = await joinSession();
-                if (success) {
-                  setIsStarted(true);
-                }
-              }}
-              disabled={!sessionState.canJoin}
-              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4 cursor-pointer"
-            >
-              {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
-            </button>
-            
-            {/* Timelapse Button - smaller and under start button with better separation */}
-            <button
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Timelapse button clicked');
-                setIsTimeLapseOpen(true);
-                
-                // Also automatically start the session
-                if (!isStarted && sessionState.canJoin) {
-                  console.log('Auto-starting painting session from timelapse');
-                  const success = await joinSession();
-                  if (success) {
-                    setIsStarted(true);
-                  }
-                }
-              }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400 cursor-pointer"
-            >
-              🎬 World Timelapse
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Queue Overlay */}
-      {!sessionState.canJoin && !sessionState.isConnected && isStarted && (
-        <QueueOverlay
-          playerCount={sessionState.playerCount}
-          queueCount={sessionState.queueCount}
-          queuePosition={sessionState.queuePosition}
-          onCancel={() => setIsStarted(false)}
-        />
-      )}
-
-      {/* Kicked Overlay */}
-      {sessionState.isKicked && (
-        <KickedOverlay
-          reason={sessionState.kickReason}
-          sessionStrokeCount={sessionStrokeCount}
-          playerId={sessionState.playerId}
-          sessionToken={sessionState.sessionToken}
-          onRestart={() => {
-            resetKick();
-            resetStrokeCount();
-            setIsStarted(false);
+    <div className="min-h-screen bg-background">
+      <Toaster />
+      
+      {/* Show emoji selector if no emoji selected */}
+      {showEmojiSelector && (
+        <EmojiSelectionOverlay
+          onEmojiSelect={(emoji) => {
+            setSelectedEmoji(emoji);
+            setShowEmojiSelector(false);
           }}
         />
       )}
 
-      {isStarted && sessionState.isConnected && (
+      {/* Show queue if not active and emoji is selected */}
+      {!isActive && selectedEmoji && !showEmojiSelector && (
+        <QueueOverlay 
+          onBack={() => {
+            setSelectedEmoji('');
+            setShowEmojiSelector(true);
+          }}
+        />
+      )}
+
+      {/* Show kicked overlay when session ends */}
+      {kickReason && (
+        <KickedOverlay
+          reason={kickReason}
+          onRestart={handleKickedRestart}
+          sessionStrokeCount={sessionStrokeCount}
+          playerId={playerId}
+          sessionToken={sessionToken}
+        />
+      )}
+
+      {/* Main painting interface */}
+      {isActive && selectedEmoji && !kickReason && (
         <>
-          {/* Main canvas area - centered with mobile margin */}
-          <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? 'mt-36' : ''}`}>
-            <WorldCanvas 
-              paintState={paintState}
-              strokes={canvasStrokes}
-              onMove={handleMove}
-              onStroke={handleStroke}
-              strokeCount={strokes.length}
-              playerCount={sessionState.playerCount}
-              isConnected={sessionState.isConnected}
-              selectedEmoji={selectedEmoji}
-              userMousePosition={userMousePosition}
-              onMouseMove={setUserMousePosition}
-              collisionCount={collisionCount}
-              isDrawingEnabled={paintState.tool === 'brush'}
-              currentSessionToken={sessionState.sessionToken}
-              onCollision={() => {
-                setCollisionCount(prev => {
-                  const newCount = prev + 1;
-                  // Increased collision threshold from 3 to 5 to prevent accidental kicks
-                  if (newCount >= 5) {
-                    // Play kick sound when getting kicked
-                    soundEffects.playKickSound();
-                    // Disconnect user after 5 collisions instead of 3
-                    leaveSession();
-                    setIsStarted(false);
-                  }
-                  return newCount;
-                });
-              }}
-            />
-          </div>
-
-          {/* Desktop UI */}
-          {!isMobile && (
-            <>
-              {/* Color picker - left side - hide in hand mode */}
-              {paintState.tool === 'brush' && (
-                <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10">
-                  <ColorPicker 
-                    color={paintState.color}
-                    onColorChange={handleColorChange}
-                    size={paintState.size}
-                    onSizeChange={handleSizeChange}
-                    tool={paintState.tool}
-                  />
-                </div>
-              )}
-
-              {/* Toolbar - top */}
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
-                <ToolBar
-                  paintState={paintState}
-                  setPaintState={setPaintState}
-                  onInfoOpen={() => setIsInfoOpen(true)}
-                  onPlayOpen={() => setIsPlayOpen(true)}
-                  onMapOpen={() => setIsMapOpen(true)}
-                  strokeCount={strokes.length}
-                  onColorChange={handleColorChange}
-                  onSizeChange={handleSizeChange}
-                  onToolChange={handleToolChange}
-                />
-              </div>
-
-            </>
-          )}
-
-          {/* Mobile UI */}
+          {/* Mobile overlay */}
           {isMobile && (
             <MobileOverlay
               paintState={paintState}
               onColorChange={handleColorChange}
-              onToolChange={handleToolChange}
               onSizeChange={handleSizeChange}
-              onMove={handleMove}
-                onInfoOpen={() => setIsInfoOpen(true)}
-                onPlayOpen={() => setIsPlayOpen(true)}
-                onMapOpen={() => setIsMapOpen(true)}
+              onToolChange={handleToolChange}
+              onInfoOpen={() => setShowInfo(true)}
+              onPlayOpen={() => setShowAnimation(true)}
+              onMapOpen={() => setShowMinimap(true)}
               strokeCount={strokes.length}
-              playerCount={sessionState.playerCount}
-              isConnected={sessionState.isConnected}
             />
           )}
 
-          {/* Dialogs & Overlays */}
-          <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />
-          
+          {/* Desktop toolbar */}
+          {!isMobile && (
+            <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-40">
+              <ToolBar
+                paintState={paintState}
+                setPaintState={setPaintState}
+                onInfoOpen={() => setShowInfo(true)}
+                onPlayOpen={() => setShowAnimation(true)}
+                onMapOpen={() => setShowMinimap(true)}
+                strokeCount={strokes.length}
+                onColorChange={handleColorChange}
+                onSizeChange={handleSizeChange}
+                onToolChange={handleToolChange}
+              />
+            </div>
+          )}
+
+          {/* Canvas */}
+          <WorldCanvas
+            paintState={paintState}
+            strokes={strokes}
+            onMove={handleMove}
+            onStroke={handleStroke}
+            strokeCount={strokes.length}
+            playerCount={playerCount}
+            isConnected={isConnected}
+            selectedEmoji={selectedEmoji}
+            userMousePosition={userMousePosition}
+            onMouseMove={setUserMousePosition}
+            collisionCount={collisionCount}
+            onCollision={handleCollision}
+            isDrawingEnabled={paintState.tool === 'brush'}
+            currentSessionToken={sessionToken}
+          />
+
+          {/* Player stats overlay */}
+          <PlayerStats 
+            collisionCount={collisionCount}
+            sessionStrokeCount={sessionStrokeCount}
+          />
+
+          {/* Info Dialog */}
+          <InfoDialog open={showInfo} onOpenChange={setShowInfo} />
+
+          {/* Animation Replay Dialog */}
           <AnimationReplay 
-            strokes={canvasStrokes}
-            isOpen={isPlayOpen}
-            onClose={() => setIsPlayOpen(false)}
+            open={showAnimation} 
+            onOpenChange={setShowAnimation} 
+            strokes={strokes}
           />
 
-          <TimeLapse
-            isOpen={isTimeLapseOpen}
-            onClose={() => setIsTimeLapseOpen(false)}
-          />
-
-          {/* World Map Overlay */}
-          {isMapOpen && (
+          {/* World Minimap */}
+          {showMinimap && (
             <WorldMinimap
               worldX={paintState.x}
               worldY={paintState.y}
-              lastStrokeX={lastStrokePosition.x}
-              lastStrokeY={lastStrokePosition.y}
-              strokes={canvasStrokes}
-              currentSessionToken={sessionState.sessionToken || undefined}
+              lastStrokeX={userMousePosition.x}
+              lastStrokeY={userMousePosition.y}
+              strokes={strokes}
+              currentSessionToken={sessionToken}
               selectedEmoji={selectedEmoji}
-              onClose={() => setIsMapOpen(false)}
+              onClose={() => setShowMinimap(false)}
+            />
+          )}
+
+          {/* Live Preview */}
+          {showLivePreview && (
+            <LivePreview
+              paintState={paintState}
+              strokes={strokes}
+              onClose={() => setShowLivePreview(false)}
             />
           )}
         </>
