@@ -17,7 +17,7 @@ import { usePlayerSession } from '@/hooks/usePlayerSession';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
 import { useSessionStrokeCount } from '@/hooks/useSessionStrokeCount';
 
-export type Tool = 'brush';
+export type Tool = 'brush' | 'hand';
 
 export interface PaintState {
   color: string;
@@ -41,7 +41,7 @@ const Index = () => {
   
   const [paintState, setPaintState] = useState<PaintState>({
     color: '#ff0080', // Will be overridden by useEffect
-    tool: 'brush',
+    tool: 'brush', // Default to brush mode
     size: 3,
     ...initialPosition
   });
@@ -323,6 +323,7 @@ const Index = () => {
               userMousePosition={userMousePosition}
               onMouseMove={setUserMousePosition}
               collisionCount={collisionCount}
+              isDrawingEnabled={paintState.tool === 'brush'}
               onCollision={() => {
                 setCollisionCount(prev => {
                   const newCount = prev + 1;
@@ -340,16 +341,18 @@ const Index = () => {
           {/* Desktop UI */}
           {!isMobile && (
             <>
-              {/* Color picker - left side */}
-              <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10">
-                <ColorPicker 
-                  color={paintState.color}
-                  onColorChange={handleColorChange}
-                  size={paintState.size}
-                  onSizeChange={handleSizeChange}
-                  tool={paintState.tool}
-                />
-              </div>
+              {/* Color picker - left side - hide in hand mode */}
+              {paintState.tool === 'brush' && (
+                <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10">
+                  <ColorPicker 
+                    color={paintState.color}
+                    onColorChange={handleColorChange}
+                    size={paintState.size}
+                    onSizeChange={handleSizeChange}
+                    tool={paintState.tool}
+                  />
+                </div>
+              )}
 
               {/* Toolbar - top */}
               <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
@@ -362,6 +365,7 @@ const Index = () => {
                   strokeCount={strokes.length}
                   onColorChange={handleColorChange}
                   onSizeChange={handleSizeChange}
+                  onToolChange={handleToolChange}
                 />
               </div>
 

@@ -25,6 +25,7 @@ interface WorldCanvasProps {
   onMouseMove: (position: { x: number; y: number }) => void;
   collisionCount: number;
   onCollision: () => void;
+  isDrawingEnabled: boolean;
 }
 
 const WorldCanvas = ({ 
@@ -39,7 +40,8 @@ const WorldCanvas = ({
   userMousePosition, 
   onMouseMove, 
   collisionCount, 
-  onCollision 
+  onCollision,
+  isDrawingEnabled 
 }: WorldCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
@@ -225,14 +227,14 @@ const WorldCanvas = ({
       }
     });
 
-    // Draw current stroke being drawn
-    if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
+    // Draw current stroke being drawn (only if brush tool)
+    if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
       const currentStroke = {
         id: 'current',
         points: currentStrokeRef.current,
         color: paintState.color,
         size: paintState.size,
-        tool: paintState.tool,
+        tool: 'brush' as const,
         timestamp: Date.now()
       };
       drawStroke(ctx, currentStroke);
@@ -299,7 +301,7 @@ const WorldCanvas = ({
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
-    if (!point) return;
+    if (!point || !isDrawingEnabled) return;
 
     isDrawingRef.current = true;
     const worldPos = viewportToWorld(point.x, point.y);
@@ -312,7 +314,7 @@ const WorldCanvas = ({
 
     // Re-render to show initial point
     renderStrokes();
-  }, [getCanvasPoint, viewportToWorld, renderStrokes]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes, isDrawingEnabled]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
@@ -364,13 +366,13 @@ const WorldCanvas = ({
   }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, otherPlayers, onMouseMove, onCollision, lastHitTime, getCanvasSize]);
 
   const handlePointerUp = useCallback(() => {
-    if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
-      // Send complete stroke
+    if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
+      // Send complete stroke (only for brush tool)
       onStroke({
         points: [...currentStrokeRef.current],
         color: paintState.color,
         size: paintState.size,
-        tool: paintState.tool
+        tool: 'brush'
       });
     }
     
@@ -401,7 +403,7 @@ const WorldCanvas = ({
         {/* Main canvas - responsive and centered */}
         <canvas
           ref={canvasRef}
-          className="border-2 border-border rounded-lg shadow-2xl cursor-crosshair max-w-full max-h-[70vh] w-auto h-auto"
+          className={`border-2 border-border rounded-lg shadow-2xl max-w-full max-h-[70vh] w-auto h-auto ${isDrawingEnabled ? 'cursor-crosshair' : 'cursor-grab'}`}
           style={{ 
             aspectRatio: '1 / 1',
             maxWidth: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))',
