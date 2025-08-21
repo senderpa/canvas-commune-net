@@ -165,6 +165,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      validate_player_session: {
+        Args: { session_player_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
