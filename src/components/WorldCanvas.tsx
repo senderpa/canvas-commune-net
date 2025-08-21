@@ -53,9 +53,11 @@ const WorldCanvas = ({
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
   const edgePanRef = useRef<number>();
   
-  // Smooth edge panning state
+  // Smooth edge panning state with acceleration
   const edgePanVelocityRef = useRef({ x: 0, y: 0 });
   const lastEdgePanTimeRef = useRef(0);
+  const edgePanAccelRef = useRef({ x: 0, y: 0 });
+  const edgePanTimeRef = useRef(0);
   
   // Emoji positioning and collision state
   const [emojiPosition, setEmojiPosition] = useState({ x: 0, y: 0 });
@@ -76,7 +78,7 @@ const WorldCanvas = ({
     return dynamicSize;
   }, [strokeCount]);
 
-  // Smooth edge panning when painting near borders
+  // Smooth edge panning with acceleration when painting near borders
   const handleEdgePanning = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas || !isDrawingRef.current) return;
@@ -85,54 +87,75 @@ const WorldCanvas = ({
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     
-    const edgeThreshold = 40;
-    const maxPanSpeed = 3;
+    const edgeThreshold = 60;
+    const minPanSpeed = 0.5;
+    const maxPanSpeed = 8;
     
-    // Calculate target velocity based on distance from edge
-    let targetVelX = 0;
-    let targetVelY = 0;
+    // Calculate edge distance ratios
+    let edgeFactorX = 0;
+    let edgeFactorY = 0;
     
     const canvasWidth = rect.width;
     const canvasHeight = rect.height;
     
+    // Calculate how close we are to edges (0 = not close, 1 = at edge)
     if (x < edgeThreshold) {
-      targetVelX = -maxPanSpeed * (1 - x / edgeThreshold); // Stronger closer to edge
+      edgeFactorX = -(1 - x / edgeThreshold);
     } else if (x > canvasWidth - edgeThreshold) {
       const distFromEdge = canvasWidth - x;
-      targetVelX = maxPanSpeed * (1 - distFromEdge / edgeThreshold);
+      edgeFactorX = (1 - distFromEdge / edgeThreshold);
     }
     
     if (y < edgeThreshold) {
-      targetVelY = -maxPanSpeed * (1 - y / edgeThreshold);
+      edgeFactorY = -(1 - y / edgeThreshold);
     } else if (y > canvasHeight - edgeThreshold) {
       const distFromEdge = canvasHeight - y;
-      targetVelY = maxPanSpeed * (1 - distFromEdge / edgeThreshold);
+      edgeFactorY = (1 - distFromEdge / edgeThreshold);
     }
     
-    // Smooth lerp to target velocity
-    const lerpFactor = 0.15;
-    edgePanVelocityRef.current.x += (targetVelX - edgePanVelocityRef.current.x) * lerpFactor;
-    edgePanVelocityRef.current.y += (targetVelY - edgePanVelocityRef.current.y) * lerpFactor;
-    
-    // Apply movement if velocity is significant
-    if (Math.abs(edgePanVelocityRef.current.x) > 0.1 || Math.abs(edgePanVelocityRef.current.y) > 0.1) {
-      onMove(edgePanVelocityRef.current.x, edgePanVelocityRef.current.y);
-      
-      // Continue panning
-      if (edgePanRef.current) {
-        cancelAnimationFrame(edgePanRef.current);
-      }
-      edgePanRef.current = requestAnimationFrame(() => {
-        handleEdgePanning(clientX, clientY);
-      });
-    } else {
-      // Stop panning when velocity is too low
+    // If we're not near any edge, reset everything
+    if (edgeFactorX === 0 && edgeFactorY === 0) {
       edgePanVelocityRef.current = { x: 0, y: 0 };
+      edgePanAccelRef.current = { x: 0, y: 0 };
+      edgePanTimeRef.current = 0;
       if (edgePanRef.current) {
         cancelAnimationFrame(edgePanRef.current);
         edgePanRef.current = undefined;
       }
+      return;
     }
+    
+    // Accumulate time for acceleration
+    const currentTime = Date.now();
+    if (edgePanTimeRef.current === 0) {
+      edgePanTimeRef.current = currentTime;
+    }
+    const timeActive = Math.min((currentTime - edgePanTimeRef.current) / 1000, 2); // Max 2 seconds
+    
+    // Acceleration curve: start slow, build up over time
+    const accelCurve = Math.min(timeActive * timeActive * 0.5 + 0.1, 1);
+    
+    // Calculate target velocities with acceleration
+    const targetVelX = edgeFactorX * (minPanSpeed + (maxPanSpeed - minPanSpeed) * accelCurve);
+    const targetVelY = edgeFactorY * (minPanSpeed + (maxPanSpeed - minPanSpeed) * accelCurve);
+    
+    // Smooth velocity transition
+    const lerpFactor = 0.1;
+    edgePanVelocityRef.current.x += (targetVelX - edgePanVelocityRef.current.x) * lerpFactor;
+    edgePanVelocityRef.current.y += (targetVelY - edgePanVelocityRef.current.y) * lerpFactor;
+    
+    // Apply movement if significant
+    if (Math.abs(edgePanVelocityRef.current.x) > 0.05 || Math.abs(edgePanVelocityRef.current.y) > 0.05) {
+      onMove(edgePanVelocityRef.current.x, edgePanVelocityRef.current.y);
+    }
+    
+    // Continue panning in next frame
+    if (edgePanRef.current) {
+      cancelAnimationFrame(edgePanRef.current);
+    }
+    edgePanRef.current = requestAnimationFrame(() => {
+      handleEdgePanning(clientX, clientY);
+    });
   }, [onMove]);
 
   // Stop edge panning when drawing stops
@@ -378,6 +401,7 @@ const WorldCanvas = ({
 
   // Throttle collision detection to improve performance
   const lastCollisionCheck = useRef(0);
+  const lastStrokePoint = useRef(0);
   
   const handlePointerMove = useCallback(async (e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
@@ -457,16 +481,28 @@ const WorldCanvas = ({
     
     if (!isDrawingRef.current) return;
 
-    // Add point to current stroke in world coordinates
-    currentStrokeRef.current.push(worldPos);
+    // Throttle stroke points to ensure smooth lines (max 60fps)
+    if (now - lastStrokePoint.current > 16) {
+      lastStrokePoint.current = now;
+      
+      // Only add point if it's significantly different from the last point
+      const lastPoint = currentStrokeRef.current[currentStrokeRef.current.length - 1];
+      if (!lastPoint || 
+          Math.abs(worldPos.x - lastPoint.x) > 2 || 
+          Math.abs(worldPos.y - lastPoint.y) > 2) {
+        currentStrokeRef.current.push(worldPos);
+      }
 
-    // Smooth re-rendering with RAF throttling
-    requestAnimationFrame(() => {
-      renderStrokes();
-    });
+      // Smooth re-rendering with RAF throttling
+      requestAnimationFrame(() => {
+        renderStrokes();
+      });
+    }
 
-    // Handle edge panning while drawing
-    handleEdgePanning(e.clientX, e.clientY);
+    // Handle edge panning while drawing (less frequent)
+    if (now - lastStrokePoint.current > 10) {
+      handleEdgePanning(e.clientX, e.clientY);
+    }
   }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, onMouseMove, onCollision, lastHitTime, getCanvasSize, currentSessionToken, emojiPosition]);
 
   const handlePointerUp = useCallback(() => {
