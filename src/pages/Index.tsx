@@ -143,7 +143,7 @@ const Index = () => {
     }
   }, [addStroke, updateActivity, sessionState.playerId, incrementStrokeCount]);
 
-  // Smooth lerp movement
+  // Smooth lerp movement with improved performance
   useEffect(() => {
     const lerp = (start: number, end: number, factor: number) => {
       return start + (end - start) * factor;
@@ -153,12 +153,13 @@ const Index = () => {
     
     const updatePosition = () => {
       setPaintState(prev => {
-        const lerpFactor = 0.1; // Smooth movement speed
+        const lerpFactor = 0.15; // Slightly faster movement for better responsiveness
         const newX = lerp(prev.x, targetPosition.x, lerpFactor);
         const newY = lerp(prev.y, targetPosition.y, lerpFactor);
         
-        // Continue animation if not close enough
-        if (Math.abs(newX - targetPosition.x) > 1 || Math.abs(newY - targetPosition.y) > 1) {
+        // Use a smaller threshold for smoother movement
+        const threshold = 0.5;
+        if (Math.abs(newX - targetPosition.x) > threshold || Math.abs(newY - targetPosition.y) > threshold) {
           animationFrame = requestAnimationFrame(updatePosition);
         }
         
@@ -343,10 +344,11 @@ const Index = () => {
               onCollision={() => {
                 setCollisionCount(prev => {
                   const newCount = prev + 1;
-                  if (newCount >= 3) {
+                  // Increased collision threshold from 3 to 5 to prevent accidental kicks
+                  if (newCount >= 5) {
                     // Play kick sound when getting kicked
                     soundEffects.playKickSound();
-                    // Disconnect user after 3 collisions
+                    // Disconnect user after 5 collisions instead of 3
                     leaveSession();
                     setIsStarted(false);
                   }
