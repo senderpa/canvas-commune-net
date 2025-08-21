@@ -66,7 +66,7 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
           
           <div className="border-t border-border pt-3 text-xs text-muted-foreground">
             <p>
-              Questions? Contact: <span className="text-primary">info@pascalsender.com</span>
+              Questions? Contact: <span className="text-primary">help@Multipainter.com</span>
             </p>
             <p className="mt-1">
               No personal data is collected. Your position and UI preferences are stored locally only.

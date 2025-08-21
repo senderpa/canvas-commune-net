@@ -64,54 +64,42 @@ export type Database = {
       }
       player_sessions: {
         Row: {
-          collision_count: number | null
           created_at: string | null
           current_color: string | null
           current_size: number | null
           current_tool: string | null
-          hit_timestamp: string | null
           id: string
           is_active: boolean | null
-          is_hit: boolean | null
           last_activity: string | null
           player_id: string
           position_x: number | null
           position_y: number | null
-          selected_emoji: string | null
           session_start: string | null
         }
         Insert: {
-          collision_count?: number | null
           created_at?: string | null
           current_color?: string | null
           current_size?: number | null
           current_tool?: string | null
-          hit_timestamp?: string | null
           id?: string
           is_active?: boolean | null
-          is_hit?: boolean | null
           last_activity?: string | null
           player_id: string
           position_x?: number | null
           position_y?: number | null
-          selected_emoji?: string | null
           session_start?: string | null
         }
         Update: {
-          collision_count?: number | null
           created_at?: string | null
           current_color?: string | null
           current_size?: number | null
           current_tool?: string | null
-          hit_timestamp?: string | null
           id?: string
           is_active?: boolean | null
-          is_hit?: boolean | null
           last_activity?: string | null
           player_id?: string
           position_x?: number | null
           position_y?: number | null
-          selected_emoji?: string | null
           session_start?: string | null
         }
         Relationships: []
@@ -164,10 +152,6 @@ export type Database = {
       promote_from_queue: {
         Args: Record<PropertyKey, never>
         Returns: undefined
-      }
-      validate_player_session: {
-        Args: { session_player_id: string }
-        Returns: boolean
       }
     }
     Enums: {

@@ -46,14 +46,8 @@ const Index = () => {
     ...initialPosition
   });
   
-  const [selectedEmoji, setSelectedEmoji] = useState<string>(() => {
-    // Load from session storage if available
-    return sessionStorage.getItem('selectedEmoji') || '';
-  });
-  const [isEmojiSelected, setIsEmojiSelected] = useState(() => {
-    // Check if emoji was already selected in this session
-    return sessionStorage.getItem('selectedEmoji') !== null;
-  });
+  const [selectedEmoji, setSelectedEmoji] = useState<string>('');
+  const [isEmojiSelected, setIsEmojiSelected] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
   const [userMousePosition, setUserMousePosition] = useState({ x: 0, y: 0 });
   const [collisionCount, setCollisionCount] = useState(0);
@@ -199,8 +193,6 @@ const Index = () => {
         <EmojiSelectionOverlay onEmojiSelected={(emoji) => {
           setSelectedEmoji(emoji);
           setIsEmojiSelected(true);
-          // Save to session storage
-          sessionStorage.setItem('selectedEmoji', emoji);
         }} />
       )}
 
