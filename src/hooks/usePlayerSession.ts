@@ -26,8 +26,8 @@ export interface SessionState {
 }
 
 const MAX_PLAYERS = 100;
-const SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes
-const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+const INACTIVITY_TIMEOUT = 60 * 1000; // 1 minute
 
 export const usePlayerSession = () => {
   const [sessionState, setSessionState] = useState<SessionState>({

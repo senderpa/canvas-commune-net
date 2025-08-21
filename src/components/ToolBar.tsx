@@ -1,7 +1,7 @@
 import { PaintState, Tool } from '@/pages/Index';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Brush, Play, Info, X, Hand } from 'lucide-react';
+import { Brush, Play, Info, X } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -14,10 +14,9 @@ interface ToolBarProps {
   strokeCount: number;
   onColorChange: (color: string) => void;
   onSizeChange: (size: number) => void;
-  onToolChange: (tool: Tool) => void;
 }
 
-const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, onMapOpen, strokeCount, onColorChange, onSizeChange, onToolChange }: ToolBarProps) => {
+const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, onMapOpen, strokeCount, onColorChange, onSizeChange }: ToolBarProps) => {
   const isMobile = useIsMobile();
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [autoMove, setAutoMove] = useState<{ [key: string]: boolean }>({ size: false, brightness: false, opacity: false });
@@ -123,31 +122,19 @@ const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, onMapOpen,
     <>
       <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-xl">
         <div className="flex items-center gap-4">
-          {/* Brush/Hand toggle button */}
+          {/* Brush button with color indicator */}
           <button
-            onClick={() => {
-              const newTool = paintState.tool === 'brush' ? 'hand' : 'brush';
-              onToolChange(newTool);
-              if (isMobile && newTool === 'brush') {
-                setIsColorPickerOpen(true);
-              }
-            }}
-            className="flex items-center gap-2 text-sm text-muted-foreground p-2 rounded hover:text-foreground transition-colors hover:bg-muted cursor-pointer"
+            onClick={isMobile ? () => setIsColorPickerOpen(true) : undefined}
+            className={`flex items-center gap-2 text-sm text-muted-foreground p-2 rounded ${isMobile ? 'hover:text-foreground transition-colors hover:bg-muted cursor-pointer' : 'cursor-default'}`}
           >
             <div className="relative">
-              {paintState.tool === 'brush' ? (
-                <>
-                  <Brush className="w-4 h-4" />
-                  <div
-                    className="absolute -bottom-1 -right-1 w-2 h-2 rounded-full border border-background"
-                    style={{ backgroundColor: paintState.color }}
-                  />
-                </>
-              ) : (
-                <Hand className="w-4 h-4" />
-              )}
+              <Brush className="w-4 h-4" />
+              <div
+                className="absolute -bottom-1 -right-1 w-2 h-2 rounded-full border border-background"
+                style={{ backgroundColor: paintState.color }}
+              />
             </div>
-            {paintState.tool === 'brush' ? 'Brush' : 'Hand'}
+            Brush
           </button>
 
           {/* Size slider with auto-move */}
@@ -195,8 +182,8 @@ const ToolBar = ({ paintState, setPaintState, onInfoOpen, onPlayOpen, onMapOpen,
         </div>
       </div>
 
-      {/* Desktop Color Picker Overlay - only show in brush mode */}
-      {isColorPickerOpen && paintState.tool === 'brush' && (
+      {/* Desktop Color Picker Overlay */}
+      {isColorPickerOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
           <div className="animate-scale-in">
             <div className="bg-card border border-border rounded-lg p-4 shadow-xl relative">

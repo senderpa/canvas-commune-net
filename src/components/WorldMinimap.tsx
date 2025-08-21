@@ -231,8 +231,9 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
         ctx.font = `${Math.max(12, 18 * zoom)}px Arial`; // 3x bigger emojis
         ctx.textAlign = 'center';
         
-        // Use the player's selected emoji
-        const playerEmoji = player.selected_emoji || '😀';
+        // Generate consistent emoji for each player
+        const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍'];
+        const playerEmoji = emojis[player.player_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % emojis.length];
         
         ctx.fillText(playerEmoji, playerX, playerY);
       }

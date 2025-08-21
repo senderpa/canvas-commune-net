@@ -25,8 +25,6 @@ interface WorldCanvasProps {
   onMouseMove: (position: { x: number; y: number }) => void;
   collisionCount: number;
   onCollision: () => void;
-  isDrawingEnabled: boolean;
-  currentPlayerId?: string;
 }
 
 const WorldCanvas = ({ 
@@ -41,9 +39,7 @@ const WorldCanvas = ({
   userMousePosition, 
   onMouseMove, 
   collisionCount, 
-  onCollision,
-  isDrawingEnabled,
-  currentPlayerId 
+  onCollision 
 }: WorldCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
@@ -60,7 +56,7 @@ const WorldCanvas = ({
   const [lastHitTime, setLastHitTime] = useState(0);
   
   // Import other players hook
-  const { otherPlayers } = useOtherPlayers(currentPlayerId);
+  const { otherPlayers } = useOtherPlayers();
 
   // Dynamic canvas size: starts at 512x512, grows by 1 pixel per stroke, max 30% of world (3000x3000)
   const getCanvasSize = useCallback(() => {
@@ -229,14 +225,14 @@ const WorldCanvas = ({
       }
     });
 
-    // Draw current stroke being drawn (only if brush tool)
-    if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
+    // Draw current stroke being drawn
+    if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
       const currentStroke = {
         id: 'current',
         points: currentStrokeRef.current,
         color: paintState.color,
         size: paintState.size,
-        tool: 'brush' as const,
+        tool: paintState.tool,
         timestamp: Date.now()
       };
       drawStroke(ctx, currentStroke);
@@ -248,8 +244,9 @@ const WorldCanvas = ({
       if (emojiViewportPos.x >= -50 && emojiViewportPos.x <= canvasSize + 50 && 
           emojiViewportPos.y >= -50 && emojiViewportPos.y <= canvasSize + 50) {
         
-        // Use the player's selected emoji
-        const playerEmoji = player.selected_emoji || '😀';
+        // Generate consistent emoji for each player (based on player_id)
+        const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍'];
+        const playerEmoji = emojis[player.player_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % emojis.length];
         
         ctx.font = '60px Arial'; // 3x bigger
         ctx.textAlign = 'center';
@@ -302,7 +299,7 @@ const WorldCanvas = ({
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
-    if (!point || !isDrawingEnabled) return;
+    if (!point) return;
 
     isDrawingRef.current = true;
     const worldPos = viewportToWorld(point.x, point.y);
@@ -315,7 +312,7 @@ const WorldCanvas = ({
 
     // Re-render to show initial point
     renderStrokes();
-  }, [getCanvasPoint, viewportToWorld, renderStrokes, isDrawingEnabled]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
@@ -367,13 +364,13 @@ const WorldCanvas = ({
   }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, otherPlayers, onMouseMove, onCollision, lastHitTime, getCanvasSize]);
 
   const handlePointerUp = useCallback(() => {
-    if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
-      // Send complete stroke (only for brush tool)
+    if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
+      // Send complete stroke
       onStroke({
         points: [...currentStrokeRef.current],
         color: paintState.color,
         size: paintState.size,
-        tool: 'brush'
+        tool: paintState.tool
       });
     }
     
@@ -404,7 +401,7 @@ const WorldCanvas = ({
         {/* Main canvas - responsive and centered */}
         <canvas
           ref={canvasRef}
-          className={`border-2 border-border rounded-lg shadow-2xl max-w-full max-h-[70vh] w-auto h-auto ${isDrawingEnabled ? 'cursor-crosshair' : 'cursor-grab'}`}
+          className="border-2 border-border rounded-lg shadow-2xl cursor-crosshair max-w-full max-h-[70vh] w-auto h-auto"
           style={{ 
             aspectRatio: '1 / 1',
             maxWidth: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))',

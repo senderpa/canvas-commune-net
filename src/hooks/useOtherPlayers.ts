@@ -11,7 +11,6 @@ export interface OtherPlayer {
   current_size: number;
   is_active: boolean;
   last_activity: string;
-  selected_emoji: string;
 }
 
 export const useOtherPlayers = (currentPlayerId?: string) => {
