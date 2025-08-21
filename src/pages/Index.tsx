@@ -131,7 +131,8 @@ const Index = () => {
         size: stroke.size,
         tool: stroke.tool,
         world_x: Math.floor(avgX),
-        world_y: Math.floor(avgY)
+        world_y: Math.floor(avgY),
+        session_token: sessionState.sessionToken
       });
       
       // Increment session stroke count
@@ -300,6 +301,7 @@ const Index = () => {
           reason={sessionState.kickReason}
           sessionStrokeCount={sessionStrokeCount}
           playerId={sessionState.playerId}
+          sessionToken={sessionState.sessionToken}
           onRestart={() => {
             resetKick();
             resetStrokeCount();
@@ -325,7 +327,7 @@ const Index = () => {
               onMouseMove={setUserMousePosition}
               collisionCount={collisionCount}
               isDrawingEnabled={paintState.tool === 'brush'}
-              currentPlayerId={sessionState.playerId}
+              currentSessionToken={sessionState.sessionToken}
               onCollision={() => {
                 setCollisionCount(prev => {
                   const newCount = prev + 1;
@@ -415,7 +417,7 @@ const Index = () => {
               lastStrokeX={lastStrokePosition.x}
               lastStrokeY={lastStrokePosition.y}
               strokes={canvasStrokes}
-              currentPlayerId={sessionState.playerId || undefined}
+              currentSessionToken={sessionState.sessionToken || undefined}
               selectedEmoji={selectedEmoji}
               onClose={() => setIsMapOpen(false)}
             />

@@ -169,39 +169,7 @@ export type Database = {
       }
     }
     Views: {
-      public_player_data: {
-        Row: {
-          anonymous_id: string | null
-          current_color: string | null
-          current_size: number | null
-          current_tool: string | null
-          general_area_x: number | null
-          general_area_y: number | null
-          is_active: boolean | null
-          selected_emoji: string | null
-        }
-        Insert: {
-          anonymous_id?: string | null
-          current_color?: string | null
-          current_size?: number | null
-          current_tool?: string | null
-          general_area_x?: never
-          general_area_y?: never
-          is_active?: boolean | null
-          selected_emoji?: string | null
-        }
-        Update: {
-          anonymous_id?: string | null
-          current_color?: string | null
-          current_size?: number | null
-          current_tool?: string | null
-          general_area_x?: never
-          general_area_y?: never
-          is_active?: boolean | null
-          selected_emoji?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       check_emoji_collision: {
@@ -226,6 +194,18 @@ export type Database = {
       get_active_player_count: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      get_anonymous_player_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          anonymous_id: string
+          current_color: string
+          current_size: number
+          current_tool: string
+          general_area_x: number
+          general_area_y: number
+          selected_emoji: string
+        }[]
       }
       get_queue_count: {
         Args: Record<PropertyKey, never>
