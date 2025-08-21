@@ -324,6 +324,7 @@ const Index = () => {
               onMouseMove={setUserMousePosition}
               collisionCount={collisionCount}
               isDrawingEnabled={paintState.tool === 'brush'}
+              currentPlayerId={sessionState.playerId}
               onCollision={() => {
                 setCollisionCount(prev => {
                   const newCount = prev + 1;

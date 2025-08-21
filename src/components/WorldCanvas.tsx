@@ -26,6 +26,7 @@ interface WorldCanvasProps {
   collisionCount: number;
   onCollision: () => void;
   isDrawingEnabled: boolean;
+  currentPlayerId?: string;
 }
 
 const WorldCanvas = ({ 
@@ -41,7 +42,8 @@ const WorldCanvas = ({
   onMouseMove, 
   collisionCount, 
   onCollision,
-  isDrawingEnabled 
+  isDrawingEnabled,
+  currentPlayerId 
 }: WorldCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
@@ -58,7 +60,7 @@ const WorldCanvas = ({
   const [lastHitTime, setLastHitTime] = useState(0);
   
   // Import other players hook
-  const { otherPlayers } = useOtherPlayers();
+  const { otherPlayers } = useOtherPlayers(currentPlayerId);
 
   // Dynamic canvas size: starts at 512x512, grows by 1 pixel per stroke, max 30% of world (3000x3000)
   const getCanvasSize = useCallback(() => {
