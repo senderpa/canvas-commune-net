@@ -174,7 +174,7 @@ const Index = () => {
     };
   }, [targetPosition]);
 
-  // Auto-start timer effect  
+  // Auto-start timer effect - COMPLETELY REWRITTEN
   useEffect(() => {
     console.log('Auto-start effect triggered:', { isStarted, canJoin: sessionState.canJoin });
     
@@ -184,8 +184,10 @@ const Index = () => {
       
       const countdownTimer = setInterval(() => {
         setAutoStartCountdown(prev => {
-          console.log('Countdown tick:', prev);
-          if (prev <= 1) {
+          const newCount = prev - 1;
+          console.log('Countdown tick:', newCount);
+          
+          if (newCount <= 0) {
             console.log('Auto-starting now!');
             // Auto start when countdown reaches 0
             joinSession().then(success => {
@@ -195,9 +197,9 @@ const Index = () => {
                 console.log('Auto-started session successfully');
               }
             });
-            return 0;
           }
-          return prev - 1;
+          
+          return Math.max(0, newCount);
         });
       }, 1000);
       
@@ -208,7 +210,7 @@ const Index = () => {
     } else {
       setAutoStartCountdown(0);
     }
-  }, [isStarted, sessionState.canJoin, joinSession]); // Removed autoStartCountdown from deps
+  }, [isStarted, sessionState.canJoin, joinSession]);
 
   // Convert real-time strokes to canvas format (filter out eraser strokes)
   const canvasStrokes = strokes

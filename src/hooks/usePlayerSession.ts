@@ -1,21 +1,5 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-export interface PlayerSession {
-  id: string;
-  player_id: string;
-  session_start: string;
-  last_activity: string;
-  is_active: boolean;
-  position_x: number;
-  position_y: number;
-  current_color?: string;
-  current_tool?: string;
-  current_size?: number;
-  session_token?: string;
-  anonymous_id?: string;
-}
 
 export interface SessionState {
   isConnected: boolean;
@@ -45,8 +29,8 @@ export const usePlayerSession = () => {
   });
 
   const activityIntervalRef = useRef<NodeJS.Timeout>();
-  const cleanupIntervalRef = useRef<NodeJS.Timeout>();
 
+  // Generate consistent player ID
   const [playerId] = useState(() => {
     let storedId = localStorage.getItem('playerId');
     if (!storedId) {
@@ -56,83 +40,37 @@ export const usePlayerSession = () => {
     return storedId;
   });
 
-  // More thorough cleanup function
-  const cleanupPlayerSessions = useCallback(async (playerIdToClean: string) => {
-    console.log('Cleaning up sessions for player:', playerIdToClean);
-    
-    try {
-      // Multiple cleanup attempts to ensure thorough removal
-      const cleanupPromises = [
-        supabase.from('player_sessions').delete().eq('player_id', playerIdToClean),
-        supabase.from('player_queue').delete().eq('player_id', playerIdToClean)
-      ];
-      
-      await Promise.allSettled(cleanupPromises);
-      
-      // Wait a bit and try again to ensure complete cleanup
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      await Promise.allSettled([
-        supabase.from('player_sessions').delete().eq('player_id', playerIdToClean),
-        supabase.from('player_queue').delete().eq('player_id', playerIdToClean)
-      ]);
-        
-      console.log('Cleanup completed');
-    } catch (error) {
-      console.log('Cleanup error (may be normal):', error);
-    }
-  }, []);
-
-  // Simplified join session with UPSERT approach
+  // Simple join session using database function
   const joinSession = useCallback(async () => {
     try {
-      console.log('Attempting to join session...');
+      console.log('Attempting to join session using database function...');
       
-      // Set RLS context for this player
-      await supabase.rpc('set_player_context', {
-        player_id_value: playerId
+      const sessionToken = crypto.randomUUID();
+      const anonymousId = `Player_${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
+      const position_x = Math.floor(Math.random() * (10000 - 512));
+      const position_y = Math.floor(Math.random() * (10000 - 512));
+
+      // Use our new database function
+      const { data: success, error } = await supabase.rpc('join_player_session', {
+        p_player_id: playerId,
+        p_session_token: sessionToken,
+        p_anonymous_id: anonymousId,
+        p_position_x: position_x,
+        p_position_y: position_y
       });
 
-      // Check room capacity first
-      const { data: playerCountData } = await supabase.rpc('get_active_player_count');
-      const currentPlayerCount = playerCountData || 0;
-      
-      if (currentPlayerCount >= MAX_PLAYERS) {
+      if (error) {
+        console.error('Join session failed:', error);
+        return false;
+      }
+
+      if (!success) {
         console.log('Room is full');
         setSessionState(prev => ({
           ...prev,
           canJoin: false,
           kickReason: 'full'
         }));
-        return false;
-      }
-
-      // Use UPSERT to handle duplicates automatically
-      const sessionToken = crypto.randomUUID();
-      const sessionData = {
-        player_id: playerId,
-        session_token: sessionToken,
-        anonymous_id: `Player_${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`,
-        is_active: true,
-        position_x: Math.floor(Math.random() * 10000),
-        position_y: Math.floor(Math.random() * 10000),
-        current_color: '#000000',
-        current_tool: 'brush',
-        current_size: 5,
-        session_start: new Date().toISOString(),
-        last_activity: new Date().toISOString(),
-      };
-
-      // Use upsert to handle existing sessions
-      const { error } = await supabase
-        .from('player_sessions')
-        .upsert([sessionData], { 
-          onConflict: 'player_id',
-          ignoreDuplicates: false 
-        });
-
-      if (error) {
-        console.error('Upsert failed:', error);
         return false;
       }
 
@@ -165,7 +103,9 @@ export const usePlayerSession = () => {
         activityIntervalRef.current = undefined;
       }
       
-      await cleanupPlayerSessions(playerId);
+      // Simple cleanup
+      await supabase.from('player_sessions').delete().eq('player_id', playerId);
+      await supabase.from('player_queue').delete().eq('player_id', playerId);
       
       setSessionState(prev => ({
         ...prev,
@@ -180,24 +120,18 @@ export const usePlayerSession = () => {
     } catch (error) {
       console.error('Leave session error:', error);
     }
-  }, [playerId, cleanupPlayerSessions]);
+  }, [playerId]);
 
-  // Update activity with RLS context
+  // Update activity
   const updateActivity = useCallback(async () => {
     if (!sessionState.isConnected || !sessionState.sessionToken) return;
 
     try {
-      // Set RLS context before updating
-      await supabase.rpc('set_player_context', {
-        player_id_value: sessionState.playerId || playerId
-      });
-      
       await supabase
         .from('player_sessions')
         .update({ last_activity: new Date().toISOString() })
         .eq('session_token', sessionState.sessionToken);
     } catch (error) {
-      // If we can't update activity, session might be gone - disconnect
       console.log('Activity update failed, disconnecting');
       setSessionState(prev => ({
         ...prev,
@@ -206,18 +140,13 @@ export const usePlayerSession = () => {
         kickReason: 'disconnected'
       }));
     }
-  }, [sessionState.isConnected, sessionState.sessionToken, sessionState.playerId, playerId]);
+  }, [sessionState.isConnected, sessionState.sessionToken]);
 
-  // Update position with RLS context
+  // Update position
   const updatePosition = useCallback(async (x: number, y: number) => {
     if (!sessionState.isConnected || !sessionState.sessionToken) return;
 
     try {
-      // Set RLS context before updating
-      await supabase.rpc('set_player_context', {
-        player_id_value: sessionState.playerId || playerId
-      });
-      
       await supabase
         .from('player_sessions')
         .update({ 
@@ -229,18 +158,13 @@ export const usePlayerSession = () => {
     } catch (error) {
       console.log('Position update failed');
     }
-  }, [sessionState.isConnected, sessionState.sessionToken, sessionState.playerId, playerId]);
+  }, [sessionState.isConnected, sessionState.sessionToken]);
 
-  // Update paint state with RLS context
+  // Update paint state
   const updatePaintState = useCallback(async (color?: string, tool?: string, size?: number) => {
     if (!sessionState.isConnected || !sessionState.sessionToken) return;
 
     try {
-      // Set RLS context before updating
-      await supabase.rpc('set_player_context', {
-        player_id_value: sessionState.playerId || playerId
-      });
-      
       const updates: any = { last_activity: new Date().toISOString() };
       if (color !== undefined) updates.current_color = color;
       if (tool !== undefined) updates.current_tool = tool;
@@ -253,9 +177,9 @@ export const usePlayerSession = () => {
     } catch (error) {
       console.log('Paint state update failed');
     }
-  }, [sessionState.isConnected, sessionState.sessionToken, sessionState.playerId, playerId]);
+  }, [sessionState.isConnected, sessionState.sessionToken]);
 
-  // Set up effects and cleanup
+  // Set up effects
   useEffect(() => {
     let subscription: any = null;
 
@@ -295,16 +219,9 @@ export const usePlayerSession = () => {
       activityIntervalRef.current = setInterval(updateActivity, 30000); // Every 30 seconds
     }
 
-    // Set up less frequent cleanup
-    cleanupIntervalRef.current = setInterval(async () => {
-      await supabase.rpc('cleanup_inactive_sessions');
-      refreshPlayerCount();
-    }, 60000); // Every minute
-
     return () => {
       if (subscription) subscription.unsubscribe();
       if (activityIntervalRef.current) clearInterval(activityIntervalRef.current);
-      if (cleanupIntervalRef.current) clearInterval(cleanupIntervalRef.current);
     };
   }, [sessionState.isConnected, updateActivity]);
 
@@ -312,18 +229,17 @@ export const usePlayerSession = () => {
   useEffect(() => {
     const cleanup = () => {
       if (sessionState.isConnected) {
-        cleanupPlayerSessions(playerId);
+        supabase.from('player_sessions').delete().eq('player_id', playerId);
       }
     };
 
-    // Only cleanup on page unload, not visibility change
     window.addEventListener('beforeunload', cleanup);
     
     return () => {
       window.removeEventListener('beforeunload', cleanup);
       cleanup();
     };
-  }, [sessionState.isConnected, playerId, cleanupPlayerSessions]);
+  }, [sessionState.isConnected, playerId]);
 
   return {
     sessionState,
