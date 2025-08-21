@@ -210,17 +210,7 @@ const Index = () => {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center relative max-h-[90vh] overflow-y-auto">            
             <h1 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Welcome <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsEmojiSelected(false);
-                }}
-                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-muted/20 hover:bg-muted/40 border border-border/50 hover:border-border transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-                title="Click to change emoji"
-              >
-                {selectedEmoji}
-              </button> to MultiPainteR
+              Welcome {selectedEmoji} to MultiPainteR
             </h1>
             <p className="text-muted-foreground mb-6">
               A collaborative painting experience on a massive 100 million pixel canvas!
