@@ -39,14 +39,20 @@ const Index = () => {
     y: Math.floor(Math.random() * (10000 - 512))
   }));
   
-  const [paintState, setPaintState] = useState<PaintState>({
-    color: '#ff0080', // Will be overridden by useEffect
-    tool: 'brush', // Default to brush mode
-    size: 3,
-    ...initialPosition
+  const [paintState, setPaintState] = useState<PaintState>(() => {
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#8000ff', '#ff0080', '#80ff00'];
+    return {
+      color: colors[Math.floor(Math.random() * colors.length)],
+      tool: 'brush',
+      size: 3,
+      ...initialPosition
+    };
   });
   
-  const [selectedEmoji, setSelectedEmoji] = useState<string>('🎨'); // Default emoji
+  const [selectedEmoji, setSelectedEmoji] = useState(() => {
+    const emojis = ['🎨', '😀', '😎', '🤖', '👨‍🎨', '👩‍🎨', '🦄', '🐱', '🐶', '🐸', '🦊', '🐻', '🎭', '🎪', '🌟', '⭐', '🔥', '💎', '🎯', '🚀', '🌈', '💫', '🎊', '🎉', '🐼', '🦁', '🐨', '🐯', '🦒', '🐘'];
+    return emojis[Math.floor(Math.random() * emojis.length)];
+  });
   const [isEmojiSelected, setIsEmojiSelected] = useState(true); // Always true now
   const [isStarted, setIsStarted] = useState(false);
   const [autoStartTimer, setAutoStartTimer] = useState<number | null>(null);
@@ -291,20 +297,6 @@ const Index = () => {
               </div>
             </div>
             
-            <div className="space-y-4 mb-6">
-              <div className="text-sm text-muted-foreground">
-                🎨 Paint together with up to 100 others
-              </div>
-              <div className="text-sm text-muted-foreground">  
-                🗺️ Explore a world of 10,000 × 10,000 pixels
-              </div>
-              <div className="text-sm text-muted-foreground">
-                ✨ Use transparency and various brush sizes
-              </div>
-              <div className="text-sm text-muted-foreground">
-                ⏰ 60 minute painting sessions with 5 minute inactivity timeout
-              </div>
-            </div>
             
             <LivePreview playerCount={sessionState.playerCount} />
             

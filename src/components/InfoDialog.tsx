@@ -33,6 +33,21 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
         </DialogHeader>
         
         <div className="space-y-3 text-sm">
+          <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              🎨 Paint together with up to 100 others
+            </div>
+            <div className="text-sm text-muted-foreground flex items-center gap-2">  
+              🗺️ Explore a world of 10,000 × 10,000 pixels
+            </div>
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              ✨ Use transparency and various brush sizes
+            </div>
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              ⏰ 60 minute painting sessions with 5 minute inactivity timeout
+            </div>
+          </div>
+          
           <div className="space-y-1">
             <h4 className="font-medium text-sm">The Canvas</h4>
             <p className="text-muted-foreground leading-relaxed text-xs">
