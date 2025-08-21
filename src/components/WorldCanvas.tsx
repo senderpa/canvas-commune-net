@@ -8,21 +8,18 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface Stroke {
   id: string;
-  player_id: string;
-  points: { x: number; y: number; pressure?: number }[];
+  points: { x: number; y: number }[];
   color: string;
   size: number;
-  tool: 'brush' | 'eraser';
-  created_at: string;
-  world_x: number;
-  world_y: number;
+  tool: 'brush';
+  timestamp: number;
 }
 
 interface WorldCanvasProps {
   paintState: PaintState;
   strokes: Stroke[];
   onMove: (deltaX: number, deltaY: number) => void;
-  onStroke: (stroke: Omit<Stroke, 'id' | 'created_at'>) => void;
+  onStroke: (stroke: Omit<Stroke, 'id' | 'timestamp'>) => void;
   strokeCount: number;
   playerCount: number;
   isConnected: boolean;
@@ -265,40 +262,27 @@ const WorldCanvas = ({
     if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
       const currentStroke = {
         id: 'current',
-        player_id: 'current',
         points: currentStrokeRef.current,
         color: paintState.color,
         size: paintState.size,
         tool: 'brush' as const,
-        created_at: new Date().toISOString(),
-        world_x: paintState.x,
-        world_y: paintState.y
+        timestamp: Date.now()
       };
       drawStroke(ctx, currentStroke);
     }
     
-    // Draw other players' emojis using exact coordinates
+    // Draw other players' emojis using general area coordinates
     otherPlayers.forEach((player, index) => {
-      console.log('Rendering other player:', player.anonymous_id, 'at', player.position_x, player.position_y);
-      const emojiViewportPos = worldToViewport(player.position_x, player.position_y);
+      const emojiViewportPos = worldToViewport(player.general_area_x, player.general_area_y);
       if (emojiViewportPos.x >= -50 && emojiViewportPos.x <= canvasSize + 50 && 
           emojiViewportPos.y >= -50 && emojiViewportPos.y <= canvasSize + 50) {
         
         // Use the player's selected emoji
         const playerEmoji = player.selected_emoji || '😀';
         
-        ctx.font = '60px Arial';
+        ctx.font = '60px Arial'; // 3x bigger
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
-        // Add a semi-transparent background for better visibility
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.beginPath();
-        ctx.arc(emojiViewportPos.x, emojiViewportPos.y, 35, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        // Draw the emoji
-        ctx.fillStyle = 'black';
         ctx.fillText(playerEmoji, emojiViewportPos.x, emojiViewportPos.y);
       }
     });
@@ -523,13 +507,10 @@ const WorldCanvas = ({
     if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
       // Send complete stroke (only for brush tool)
       onStroke({
-        player_id: currentSessionToken || 'unknown',
         points: [...currentStrokeRef.current],
         color: paintState.color,
         size: paintState.size,
-        tool: 'brush',
-        world_x: paintState.x,
-        world_y: paintState.y
+        tool: 'brush'
       });
     }
     
