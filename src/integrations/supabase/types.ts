@@ -215,6 +215,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      set_player_context: {
+        Args: { player_id_value: string }
+        Returns: undefined
+      }
       validate_player_session: {
         Args: { session_player_id: string }
         Returns: boolean
