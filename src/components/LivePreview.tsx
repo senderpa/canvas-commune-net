@@ -20,7 +20,7 @@ export const LivePreview = ({ playerCount }: LivePreviewProps) => {
     }
 
     // Pick a random active player
-    if (!focusPlayer || !otherPlayers.find(p => p.anonymous_id === focusPlayer.anonymous_id)) {
+    if (!focusPlayer || !otherPlayers.find(p => p.player_id === focusPlayer.player_id)) {
       const randomPlayer = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
       setFocusPlayer(randomPlayer);
     }
@@ -28,7 +28,7 @@ export const LivePreview = ({ playerCount }: LivePreviewProps) => {
     // Switch to a different player every 15 seconds
     const interval = setInterval(() => {
       if (otherPlayers.length > 1) {
-        const otherOptions = otherPlayers.filter(p => p.anonymous_id !== focusPlayer?.anonymous_id);
+        const otherOptions = otherPlayers.filter(p => p.player_id !== focusPlayer?.player_id);
         if (otherOptions.length > 0) {
           const newPlayer = otherOptions[Math.floor(Math.random() * otherOptions.length)];
           setFocusPlayer(newPlayer);
@@ -53,8 +53,8 @@ export const LivePreview = ({ playerCount }: LivePreviewProps) => {
     // Define viewport around the focused player (16:9 area)
     const viewportWidth = 1600; // World units
     const viewportHeight = 900;  // World units (16:9 ratio)
-    const centerX = focusPlayer.general_area_x;
-    const centerY = focusPlayer.general_area_y;
+    const centerX = focusPlayer.position_x;
+    const centerY = focusPlayer.position_y;
 
     const left = centerX - viewportWidth / 2;
     const right = centerX + viewportWidth / 2;
@@ -102,8 +102,8 @@ export const LivePreview = ({ playerCount }: LivePreviewProps) => {
     ctx.fillStyle = focusPlayer.current_color || '#ffffff';
     ctx.beginPath();
     ctx.arc(
-      (focusPlayer.general_area_x - left) * scaleX, 
-      (focusPlayer.general_area_y - top) * scaleY, 
+      (focusPlayer.position_x - left) * scaleX, 
+      (focusPlayer.position_y - top) * scaleY, 
       Math.max(3, focusPlayer.current_size * scaleX * 0.5), 
       0, 
       Math.PI * 2
@@ -134,7 +134,7 @@ export const LivePreview = ({ playerCount }: LivePreviewProps) => {
           {playerCount} painting
         </div>
         <div className="absolute bottom-1 right-1 bg-black/50 text-white text-xs px-1 rounded">
-          Player: {focusPlayer.anonymous_id}
+          Player: {focusPlayer.player_id.slice(0, 6)}...
         </div>
       </div>
     </div>

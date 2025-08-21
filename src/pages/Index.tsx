@@ -131,8 +131,7 @@ const Index = () => {
         size: stroke.size,
         tool: stroke.tool,
         world_x: Math.floor(avgX),
-        world_y: Math.floor(avgY),
-        session_token: sessionState.sessionToken
+        world_y: Math.floor(avgY)
       });
       
       // Increment session stroke count
@@ -209,19 +208,7 @@ const Index = () => {
       {/* Start Window Overlay */}
       {isEmojiSelected && !isStarted && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center relative">
-            {/* Emoji change button */}
-            <button
-              onClick={() => {
-                setIsEmojiSelected(false);
-                sessionStorage.removeItem('selectedEmoji');
-              }}
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-muted hover:bg-muted/80 border border-border flex items-center justify-center text-lg transition-colors"
-              title="Change emoji"
-            >
-              {selectedEmoji}
-            </button>
-            
+          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center">
             <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Welcome {selectedEmoji} to MultiPainteR
             </h1>
@@ -313,7 +300,6 @@ const Index = () => {
           reason={sessionState.kickReason}
           sessionStrokeCount={sessionStrokeCount}
           playerId={sessionState.playerId}
-          sessionToken={sessionState.sessionToken}
           onRestart={() => {
             resetKick();
             resetStrokeCount();
@@ -339,7 +325,7 @@ const Index = () => {
               onMouseMove={setUserMousePosition}
               collisionCount={collisionCount}
               isDrawingEnabled={paintState.tool === 'brush'}
-              currentSessionToken={sessionState.sessionToken}
+              currentPlayerId={sessionState.playerId}
               onCollision={() => {
                 setCollisionCount(prev => {
                   const newCount = prev + 1;
@@ -429,7 +415,7 @@ const Index = () => {
               lastStrokeX={lastStrokePosition.x}
               lastStrokeY={lastStrokePosition.y}
               strokes={canvasStrokes}
-              currentSessionToken={sessionState.sessionToken || undefined}
+              currentPlayerId={sessionState.playerId || undefined}
               selectedEmoji={selectedEmoji}
               onClose={() => setIsMapOpen(false)}
             />

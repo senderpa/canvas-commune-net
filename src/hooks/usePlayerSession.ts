@@ -12,8 +12,6 @@ export interface PlayerSession {
   current_color?: string;
   current_tool?: string;
   current_size?: number;
-  session_token?: string;
-  anonymous_id?: string;
 }
 
 export interface SessionState {
@@ -25,7 +23,6 @@ export interface SessionState {
   isKicked: boolean;
   kickReason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | null;
   playerId: string | null;
-  sessionToken: string | null;
 }
 
 const MAX_PLAYERS = 100;
@@ -42,7 +39,6 @@ export const usePlayerSession = () => {
     isKicked: false,
     kickReason: null,
     playerId: null,
-    sessionToken: null,
   });
 
   const [playerId] = useState(() => {
@@ -69,17 +65,18 @@ export const usePlayerSession = () => {
         .delete()
         .eq('player_id', playerId);
 
-      // Use secure function to check player count
-      const { data: playerCountData, error: countError } = await supabase
-        .rpc('get_active_player_count');
+      // Check current active player count
+      const { data: sessions, error: countError } = await supabase
+        .from('player_sessions')
+        .select('*')
+        .eq('is_active', true);
 
       if (countError) {
         console.error('Error checking player count:', countError);
         return false;
       }
 
-      const currentPlayerCount = playerCountData || 0;
-      if (currentPlayerCount >= MAX_PLAYERS) {
+      if (sessions && sessions.length >= MAX_PLAYERS) {
         // Room is full - add to queue
         const { data: queueData, error: queueCountError } = await supabase
           .from('player_queue')
@@ -116,13 +113,10 @@ export const usePlayerSession = () => {
       }
 
       // Room has space - join directly
-      const sessionToken = crypto.randomUUID();
       const { error: insertError } = await supabase
         .from('player_sessions')
         .insert({
           player_id: playerId,
-          session_token: sessionToken,
-          anonymous_id: `Player_${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`,
           is_active: true,
           position_x: Math.floor(Math.random() * 10000),
           position_y: Math.floor(Math.random() * 10000),
@@ -141,7 +135,6 @@ export const usePlayerSession = () => {
         isConnected: true,
         canJoin: true,
         playerId,
-        sessionToken,
         isKicked: false,
         kickReason: null,
       }));
@@ -173,7 +166,6 @@ export const usePlayerSession = () => {
         isConnected: false,
         canJoin: false,
         playerId: null,
-        sessionToken: null,
       }));
     } catch (error) {
       console.error('Leave session error:', error);
@@ -301,26 +293,33 @@ export const usePlayerSession = () => {
     window.addEventListener('pagehide', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Refresh player count and queue using secure functions
+    // Refresh player count and queue
     const refreshPlayerCount = async () => {
       try {
-        // Get active players count using secure function
-        const { data: activeCount, error: sessionsError } = await supabase
-          .rpc('get_active_player_count');
+        // Get active players count
+        const { data: sessions, error: sessionsError } = await supabase
+          .from('player_sessions')
+          .select('*')
+          .eq('is_active', true);
 
-        // Get queue count using secure function
-        const { data: queueCount, error: queueError } = await supabase
-          .rpc('get_queue_count');
+        // Get queue count  
+        const { data: queue, error: queueError } = await supabase
+          .from('player_queue')
+          .select('*')
+          .order('queue_position', { ascending: true });
 
         if (!sessionsError && !queueError) {
+          const activeCount = sessions?.length || 0;
+          const queueCount = queue?.length || 0;
+          
           console.log('Current active players:', activeCount, 'Queue:', queueCount);
           
           setSessionState(prev => ({
             ...prev,
-            playerCount: activeCount || 0,
-            queueCount: queueCount || 0,
-            canJoin: (activeCount || 0) < MAX_PLAYERS,
-            queuePosition: 0, // Queue position will be handled separately if needed
+            playerCount: activeCount,
+            queueCount: queueCount,
+            canJoin: activeCount < MAX_PLAYERS,
+            queuePosition: queue?.findIndex(q => q.player_id === playerId) + 1 || 0,
           }));
         }
       } catch (error) {

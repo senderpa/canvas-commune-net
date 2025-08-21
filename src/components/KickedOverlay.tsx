@@ -8,10 +8,9 @@ interface KickedOverlayProps {
   onRestart: () => void;
   sessionStrokeCount?: number;
   playerId?: string;
-  sessionToken?: string;
 }
 
-const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, sessionToken }: KickedOverlayProps) => {
+const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId }: KickedOverlayProps) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedEmojis, setSelectedEmojis] = useState<string[]>([]);
   const [isSubmittingScore, setIsSubmittingScore] = useState(false);
@@ -33,7 +32,7 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId, se
 
     setIsSubmittingScore(true);
     const emojiId = selectedEmojis.join('');
-    const success = await submitHighscore(emojiId, sessionStrokeCount, playerId, sessionToken);
+    const success = await submitHighscore(emojiId, sessionStrokeCount, playerId);
     
     if (success) {
       setScoreSubmitted(true);

@@ -4,7 +4,6 @@ import EdgeIndicators from './EdgeIndicators';
 import { useOtherPlayers } from '@/hooks/useOtherPlayers';
 import { ParticleExplosion } from './ParticleExplosion';
 import { soundEffects } from '@/utils/soundEffects';
-import { supabase } from '@/integrations/supabase/client';
 
 interface Stroke {
   id: string;
@@ -29,7 +28,7 @@ interface WorldCanvasProps {
   collisionCount: number;
   onCollision: () => void;
   isDrawingEnabled: boolean;
-  currentSessionToken?: string;
+  currentPlayerId?: string;
 }
 
 const WorldCanvas = ({ 
@@ -46,7 +45,7 @@ const WorldCanvas = ({
   collisionCount, 
   onCollision,
   isDrawingEnabled,
-  currentSessionToken 
+  currentPlayerId 
 }: WorldCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
@@ -66,7 +65,7 @@ const WorldCanvas = ({
   const [explosionState, setExplosionState] = useState({ isActive: false, x: 0, y: 0 });
   
   // Import other players hook
-  const { otherPlayers } = useOtherPlayers(currentSessionToken);
+  const { otherPlayers } = useOtherPlayers(currentPlayerId);
 
   // Dynamic canvas size: starts at 512x512, grows by 1 pixel per stroke, max 30% of world (3000x3000)
   const getCanvasSize = useCallback(() => {
@@ -248,9 +247,9 @@ const WorldCanvas = ({
       drawStroke(ctx, currentStroke);
     }
     
-    // Draw other players' emojis using general area coordinates
+    // Draw other players' emojis
     otherPlayers.forEach((player, index) => {
-      const emojiViewportPos = worldToViewport(player.general_area_x, player.general_area_y);
+      const emojiViewportPos = worldToViewport(player.position_x, player.position_y);
       if (emojiViewportPos.x >= -50 && emojiViewportPos.x <= canvasSize + 50 && 
           emojiViewportPos.y >= -50 && emojiViewportPos.y <= canvasSize + 50) {
         
@@ -323,7 +322,7 @@ const WorldCanvas = ({
     renderStrokes();
   }, [getCanvasPoint, viewportToWorld, renderStrokes, isDrawingEnabled]);
 
-  const handlePointerMove = useCallback(async (e: React.PointerEvent) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
     if (!point) return;
     
@@ -348,25 +347,24 @@ const WorldCanvas = ({
     setEmojiPosition(constrainedPos);
     onMouseMove(constrainedPos);
     
-    // Check for collisions with other players using secure function
-    if (currentSessionToken) {
-      // Use secure collision detection function
-      try {
-        const { data: collisions, error } = await supabase
-          .rpc('check_emoji_collision', {
-            p_session_token: currentSessionToken,
-            p_position_x: Math.floor(constrainedPos.x),
-            p_position_y: Math.floor(constrainedPos.y)
-          });
-
-        if (!error && collisions && collisions.length > 0) {
-          const now = Date.now();
-          if (now - lastHitTime > 500) { // Prevent rapid collision spam
-            
-            // Calculate current player speed
-            const currentPlayerSpeed = Math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy);
-            
-            // For security, we assume slower emoji gets hit (current player moving into collision)
+    // Check for collisions with other players
+    otherPlayers.forEach(player => {
+      const distance = Math.sqrt(
+        Math.pow(constrainedPos.x - player.position_x, 2) + 
+        Math.pow(constrainedPos.y - player.position_y, 2)
+      );
+      
+      if (distance < 50) { // Collision threshold
+        const now = Date.now();
+        if (now - lastHitTime > 500) { // Prevent rapid collision spam
+          
+          // Calculate other player's estimated velocity (simplified)
+          // In a real scenario, this would come from the database
+          const otherPlayerSpeed = 0; // Assume other players are stationary for now
+          const currentPlayerSpeed = Math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy);
+          
+          // Only apply hit to slower/stationary emoji
+          if (currentPlayerSpeed <= otherPlayerSpeed) {
             setIsEmojiHit(true);
             setLastHitTime(now);
             onCollision();
@@ -390,10 +388,8 @@ const WorldCanvas = ({
             setTimeout(() => setIsEmojiHit(false), 300);
           }
         }
-      } catch (error) {
-        console.error('Collision detection error:', error);
       }
-    }
+    });
     
     if (!isDrawingRef.current) return;
 
@@ -407,7 +403,7 @@ const WorldCanvas = ({
 
     // Handle edge panning while drawing
     handleEdgePanning(e.clientX, e.clientY);
-  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, otherPlayers, onMouseMove, onCollision, lastHitTime, getCanvasSize, currentSessionToken]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, otherPlayers, onMouseMove, onCollision, lastHitTime, getCanvasSize]);
 
   const handlePointerUp = useCallback(() => {
     if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
