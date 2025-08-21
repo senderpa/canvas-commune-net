@@ -262,7 +262,9 @@ const Index = () => {
             <LivePreview playerCount={sessionState.playerCount} />
             
             <button
-              onClick={async () => {
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 console.log('Start Painting button clicked');
                 const success = await joinSession();
                 if (success) {
@@ -270,14 +272,16 @@ const Index = () => {
                 }
               }}
               disabled={!sessionState.canJoin}
-              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4"
+              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4 cursor-pointer"
             >
               {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
             </button>
             
             {/* Timelapse Button - smaller and under start button with better separation */}
             <button
-              onClick={async () => {
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 console.log('Timelapse button clicked');
                 setIsTimeLapseOpen(true);
                 
@@ -290,7 +294,7 @@ const Index = () => {
                   }
                 }
               }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400 cursor-pointer"
             >
               🎬 World Timelapse
             </button>

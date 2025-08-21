@@ -118,23 +118,20 @@ export const LivePreview = ({ playerCount }: LivePreviewProps) => {
   }
 
   return (
-    <div className="bg-muted/30 rounded-lg p-3 mb-4">
-      <div className="text-xs text-muted-foreground mb-2 text-center">
-        Live Preview - Following Player
+    <div className="bg-muted/30 rounded-lg p-2 mb-4">
+      <div className="text-xs text-muted-foreground mb-1 text-center">
+        Live Preview
       </div>
-      <div className="relative bg-black rounded overflow-hidden" style={{ aspectRatio: '16/9' }}>
+      <div className="relative bg-black rounded overflow-hidden" style={{ aspectRatio: '16/9', maxWidth: '200px', margin: '0 auto' }}>
         <canvas
           ref={canvasRef}
-          width={320}
-          height={180}
+          width={200}
+          height={112}
           className="w-full h-full"
           style={{ imageRendering: 'auto' }}
         />
-        <div className="absolute top-1 left-1 bg-black/50 text-white text-xs px-1 rounded">
-          {playerCount} painting
-        </div>
-        <div className="absolute bottom-1 right-1 bg-black/50 text-white text-xs px-1 rounded">
-          Player: {focusPlayer.anonymous_id}
+        <div className="absolute top-0.5 left-0.5 bg-black/50 text-white text-xs px-1 rounded">
+          {playerCount} live
         </div>
       </div>
     </div>
