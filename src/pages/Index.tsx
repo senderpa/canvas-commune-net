@@ -209,7 +209,19 @@ const Index = () => {
       {/* Start Window Overlay */}
       {isEmojiSelected && !isStarted && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center">
+          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center relative">
+            {/* Emoji change button */}
+            <button
+              onClick={() => {
+                setIsEmojiSelected(false);
+                sessionStorage.removeItem('selectedEmoji');
+              }}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-muted hover:bg-muted/80 border border-border flex items-center justify-center text-lg transition-colors"
+              title="Change emoji"
+            >
+              {selectedEmoji}
+            </button>
+            
             <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Welcome {selectedEmoji} to MultiPainteR
             </h1>
