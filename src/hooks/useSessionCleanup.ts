@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export const useSessionCleanup = () => {
   useEffect(() => {
-    // Call cleanup function every 60 seconds
+    // Call cleanup function every 30 seconds (more frequent)
     const cleanupInterval = setInterval(async () => {
       try {
         const { data, error } = await supabase.functions.invoke('cleanup-sessions');
@@ -16,7 +16,7 @@ export const useSessionCleanup = () => {
       } catch (error) {
         console.log('Failed to call cleanup function:', error);
       }
-    }, 60000); // Every 60 seconds
+    }, 30000); // Every 30 seconds
 
     // Initial cleanup call
     const initialCleanup = async () => {

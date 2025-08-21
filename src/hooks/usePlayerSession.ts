@@ -214,18 +214,25 @@ export const usePlayerSession = () => {
 
     // Set up activity heartbeat and visibility handling if connected
     if (sessionState.isConnected) {
-      // Regular heartbeat every 30 seconds (only when page is visible)
+      // More frequent heartbeat every 15 seconds (only when page is visible)
       activityIntervalRef.current = setInterval(() => {
         if (!document.hidden) {
           updateActivity();
         }
-      }, 30000);
+      }, 15000);
       
       // Handle page visibility changes
       visibilityHandler = () => {
         if (document.hidden) {
-          // Page became hidden - stop activity updates
+          // Page became hidden - stop activity updates and set timer to leave if hidden too long
           console.log('Page hidden - pausing activity updates');
+          // If page is hidden for more than 45 seconds, leave session to prevent phantom users
+          setTimeout(() => {
+            if (document.hidden && sessionState.isConnected) {
+              console.log('Page hidden too long - leaving session');
+              leaveSession();
+            }
+          }, 45000);
         } else {
           // Page became visible - send immediate activity update
           console.log('Page visible - resuming activity updates');
