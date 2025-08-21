@@ -89,6 +89,14 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
   
   const handleEmojiClick = (index: number) => {
     if (isScrolling) return;
+    
+    // Stop any auto scroll
+    if (autoScrollRef.current) {
+      cancelAnimationFrame(autoScrollRef.current);
+      autoScrollRef.current = undefined;
+      setIsScrolling(false);
+    }
+    
     setSelectedIndex(index);
   };
   
@@ -175,7 +183,19 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
         
         {/* Pick button */}
         <Button
-          onClick={() => onEmojiSelected(selectedEmoji)}
+          onClick={() => {
+            // Stop any ongoing scroll
+            if (autoScrollRef.current) {
+              cancelAnimationFrame(autoScrollRef.current);
+              autoScrollRef.current = undefined;
+            }
+            setIsScrolling(false);
+            
+            // Save to session storage
+            sessionStorage.setItem('selectedEmoji', selectedEmoji);
+            
+            onEmojiSelected(selectedEmoji);
+          }}
           disabled={isScrolling}
           size="lg"
           className="w-full text-xl py-6 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg"
