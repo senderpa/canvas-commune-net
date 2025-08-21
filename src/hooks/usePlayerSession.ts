@@ -401,21 +401,23 @@ export const usePlayerSession = () => {
       )
       .subscribe();
 
-    // Initial player count
-    refreshPlayerCount();
+    // Initial cleanup and player count refresh
+    const initialSetup = async () => {
+      await supabase.rpc('cleanup_inactive_sessions');
+      refreshPlayerCount();
+    };
+    initialSetup();
 
     // Set up activity heartbeat - more frequent to prevent timeouts
     if (sessionState.isConnected) {
       activityInterval = setInterval(updateActivity, 15000); // Every 15 seconds
     }
 
-    // Set up cleanup interval - much less aggressive to prevent premature kicks
+    // Set up cleanup interval - run more frequently to prevent stale sessions
     cleanupInterval = setInterval(async () => {
       try {
-        // Only run cleanup if player has been inactive for a while or if they're not currently connected
-        if (!sessionState.isConnected) {
-          await supabase.rpc('cleanup_inactive_sessions');
-        }
+        // Run cleanup more frequently to prevent stale session accumulation
+        await supabase.rpc('cleanup_inactive_sessions');
 
         // Check if current player session still exists (only if connected)
         if (sessionState.isConnected) {
@@ -458,7 +460,7 @@ export const usePlayerSession = () => {
       } catch (error) {
         console.error('Cleanup error:', error);
       }
-    }, 60000); // Every 60 seconds - much less aggressive
+    }, 30000); // Every 30 seconds to keep counts accurate
 
     return () => {
       // Cleanup subscriptions
