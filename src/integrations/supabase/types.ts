@@ -248,6 +248,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      get_queue_status: {
+        Args: { p_player_id: string }
+        Returns: {
+          estimated_wait_minutes: number
+          queue_position: number
+          total_count: number
+        }[]
+      }
+      join_player_queue: {
+        Args: { p_player_id: string; p_session_token: string }
+        Returns: number
+      }
       join_player_session: {
         Args: {
           p_anonymous_id: string
@@ -256,6 +268,10 @@ export type Database = {
           p_position_y?: number
           p_session_token: string
         }
+        Returns: boolean
+      }
+      leave_player_queue: {
+        Args: { p_player_id: string }
         Returns: boolean
       }
       promote_from_queue: {

@@ -103,9 +103,9 @@ export const usePlayerSession = () => {
         activityIntervalRef.current = undefined;
       }
       
-      // Simple cleanup
+      // Simple cleanup using secure functions
       await supabase.from('player_sessions').delete().eq('player_id', playerId);
-      await supabase.from('player_queue').delete().eq('player_id', playerId);
+      await supabase.rpc('leave_player_queue', { p_player_id: playerId });
       
       setSessionState(prev => ({
         ...prev,
@@ -213,6 +213,7 @@ export const usePlayerSession = () => {
     const cleanup = () => {
       if (sessionState.isConnected) {
         supabase.from('player_sessions').delete().eq('player_id', playerId);
+        supabase.rpc('leave_player_queue', { p_player_id: playerId });
       }
     };
 
