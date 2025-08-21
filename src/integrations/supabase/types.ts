@@ -211,6 +211,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      join_player_session: {
+        Args: {
+          p_anonymous_id: string
+          p_player_id: string
+          p_position_x?: number
+          p_position_y?: number
+          p_session_token: string
+        }
+        Returns: boolean
+      }
       promote_from_queue: {
         Args: Record<PropertyKey, never>
         Returns: undefined
