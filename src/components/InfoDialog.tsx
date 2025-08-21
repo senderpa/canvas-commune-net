@@ -49,7 +49,7 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
               <li>• Choose colors with the color picker</li>
               <li>• Switch between brush and eraser tools in the toolbar</li>
               <li>• Adjust brush size from 1-20 pixels</li>
-              <li>• Sessions last 30 minutes with 2 minute inactivity timeout</li>
+              <li>• Sessions last 60 minutes with 5 minute inactivity timeout</li>
             </ul>
           </div>
           

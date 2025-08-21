@@ -52,13 +52,13 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId }: 
       case 'timeout':
         return {
           title: "Session Timeout",
-          message: "Your 10-minute painting session has ended.",
+          message: "Your 60-minute painting session has ended.",
           icon: "⏰"
         };
       case 'inactivity':
         return {
           title: "Inactive Session",
-          message: "You were removed due to 1 minute of inactivity.",
+          message: "You were removed due to 5 minutes of inactivity.",
           icon: "😴"
         };
       case 'full':
@@ -156,8 +156,8 @@ const KickedOverlay = ({ reason, onRestart, sessionStrokeCount = 0, playerId }: 
         <div className="bg-muted/50 rounded-lg p-4 mb-6">
           <h3 className="font-semibold mb-2">Session Limits:</h3>
           <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• Maximum 10 minutes per session</li>
-            <li>• Automatic timeout after 1 minute of inactivity</li>
+            <li>• Maximum 60 minutes per session</li>
+            <li>• Automatic timeout after 5 minutes of inactivity</li>
             <li>• Maximum 100 simultaneous painters</li>
           </ul>
         </div>

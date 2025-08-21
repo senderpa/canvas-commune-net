@@ -240,7 +240,7 @@ const Index = () => {
                 ✨ Use transparency and various brush sizes
               </div>
               <div className="text-sm text-muted-foreground">
-                ⏰ 10 minute painting sessions with 1 minute inactivity timeout
+                ⏰ 60 minute painting sessions with 5 minute inactivity timeout
               </div>
             </div>
             
