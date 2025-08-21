@@ -278,7 +278,7 @@ const Index = () => {
               </div>
             </div>
             
-            <LivePreview />
+            <LivePreview playerCount={sessionState.playerCount} />
             
             {/* Action Buttons */}
             <div className="space-y-3">
