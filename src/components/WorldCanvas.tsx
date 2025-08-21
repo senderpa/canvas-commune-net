@@ -246,9 +246,8 @@ const WorldCanvas = ({
       if (emojiViewportPos.x >= -50 && emojiViewportPos.x <= canvasSize + 50 && 
           emojiViewportPos.y >= -50 && emojiViewportPos.y <= canvasSize + 50) {
         
-        // Generate consistent emoji for each player (based on player_id)
-        const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍'];
-        const playerEmoji = emojis[player.player_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % emojis.length];
+        // Use the player's selected emoji
+        const playerEmoji = player.selected_emoji || '😀';
         
         ctx.font = '60px Arial'; // 3x bigger
         ctx.textAlign = 'center';
