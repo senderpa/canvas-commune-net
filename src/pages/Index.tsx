@@ -13,6 +13,7 @@ import { LivePreview } from '@/components/LivePreview';
 import TimeLapse from '@/components/TimeLapse';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
+import { useSessionCleanup } from '@/hooks/useSessionCleanup';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
 import { useSessionStrokeCount } from '@/hooks/useSessionStrokeCount';
 import { soundEffects } from '@/utils/soundEffects';
@@ -32,6 +33,9 @@ const Index = () => {
   const { sessionState, joinSession, leaveSession, updateActivity, updatePosition, updatePaintState, resetKick } = usePlayerSession();
   const { strokes, isLoading: strokesLoading, addStroke } = useRealTimeStrokes();
   const { sessionStrokeCount, incrementStrokeCount, resetStrokeCount } = useSessionStrokeCount(sessionState.playerId, sessionState.isConnected);
+  
+  // Set up automatic session cleanup
+  useSessionCleanup();
   
   // Generate random starting position and color (updated)
   const [initialPosition] = useState(() => ({

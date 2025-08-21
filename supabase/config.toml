@@ -1,1 +1,4 @@
 project_id = "ewqgdlqjmcydymplwjvi"
+
+[functions.cleanup-sessions]
+verify_jwt = false

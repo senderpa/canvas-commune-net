@@ -282,6 +282,10 @@ export type Database = {
         Args: { player_id_value: string }
         Returns: undefined
       }
+      update_player_activity: {
+        Args: { p_session_token: string }
+        Returns: undefined
+      }
       validate_player_session: {
         Args: { session_player_id: string }
         Returns: boolean

@@ -122,11 +122,22 @@ export const usePlayerSession = () => {
     }
   }, [playerId]);
 
-  // Update activity - simplified without activity function
+  // Smart activity tracking with Page Visibility API
   const updateActivity = useCallback(async () => {
-    // Removed activity updates to prevent disconnections
-    // Users will only disconnect when they manually leave or close the browser
-  }, []);
+    if (!sessionState.isConnected || !sessionState.sessionToken) return;
+    
+    // Only update activity if page is visible
+    if (document.hidden) return;
+
+    try {
+      await supabase.rpc('update_player_activity', {
+        p_session_token: sessionState.sessionToken
+      });
+    } catch (error) {
+      console.log('Activity update failed');
+      // Don't disconnect immediately - let server-side cleanup handle it
+    }
+  }, [sessionState.isConnected, sessionState.sessionToken]);
 
   // Update position
   const updatePosition = useCallback(async (x: number, y: number) => {
@@ -165,10 +176,11 @@ export const usePlayerSession = () => {
     }
   }, [sessionState.isConnected, sessionState.sessionToken]);
 
-  // Set up effects
+  // Set up effects with Page Visibility API
   useEffect(() => {
     let subscription: any = null;
-
+    let visibilityHandler: () => void;
+    
     // Refresh player count
     const refreshPlayerCount = async () => {
       try {
@@ -200,27 +212,74 @@ export const usePlayerSession = () => {
     // Initial count refresh
     refreshPlayerCount();
 
-    // No activity heartbeat - users stay connected until manual disconnect
+    // Set up activity heartbeat and visibility handling if connected
+    if (sessionState.isConnected) {
+      // Regular heartbeat every 30 seconds (only when page is visible)
+      activityIntervalRef.current = setInterval(() => {
+        if (!document.hidden) {
+          updateActivity();
+        }
+      }, 30000);
+      
+      // Handle page visibility changes
+      visibilityHandler = () => {
+        if (document.hidden) {
+          // Page became hidden - stop activity updates
+          console.log('Page hidden - pausing activity updates');
+        } else {
+          // Page became visible - send immediate activity update
+          console.log('Page visible - resuming activity updates');
+          updateActivity();
+        }
+      };
+      
+      document.addEventListener('visibilitychange', visibilityHandler);
+      
+      // Send immediate activity update when setting up
+      updateActivity();
+    }
 
     return () => {
       if (subscription) subscription.unsubscribe();
       if (activityIntervalRef.current) clearInterval(activityIntervalRef.current);
+      if (visibilityHandler) {
+        document.removeEventListener('visibilitychange', visibilityHandler);
+      }
     };
   }, [sessionState.isConnected, updateActivity]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount with enhanced visibility handling
   useEffect(() => {
-    const cleanup = () => {
+    const cleanup = async () => {
       if (sessionState.isConnected) {
-        supabase.from('player_sessions').delete().eq('player_id', playerId);
-        supabase.rpc('leave_player_queue', { p_player_id: playerId });
+        // Use both direct cleanup and secure function
+        await Promise.all([
+          supabase.from('player_sessions').delete().eq('player_id', playerId),
+          supabase.rpc('leave_player_queue', { p_player_id: playerId })
+        ]);
       }
     };
 
-    window.addEventListener('beforeunload', cleanup);
+    // Handle page unload/close
+    const handleBeforeUnload = () => {
+      cleanup();
+    };
+    
+    // Handle page visibility change for better cleanup
+    const handleVisibilityChange = () => {
+      if (document.hidden && sessionState.isConnected) {
+        // User switched tabs or minimized - they're still active but not visible
+        // Activity updates will pause but connection remains
+        console.log('Page hidden but maintaining connection');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
-      window.removeEventListener('beforeunload', cleanup);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       cleanup();
     };
   }, [sessionState.isConnected, playerId]);
