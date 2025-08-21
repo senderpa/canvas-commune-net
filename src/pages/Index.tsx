@@ -164,12 +164,11 @@ const Index = () => {
 
   // Handle URL parameters for live preview
   useEffect(() => {
-    const [searchParams] = useSearchParams();
-    const preview = searchParams.get('preview');
+    const preview = searchParams[0].get('preview');
     if (preview === 'true') {
       setShowLivePreview(true);
     }
-  }, []);
+  }, [searchParams]);
 
   // Modify the kickReason handling to include 'hits'
   useEffect(() => {
