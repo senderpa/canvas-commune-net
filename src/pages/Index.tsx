@@ -11,7 +11,6 @@ import QueueOverlay from '@/components/QueueOverlay';
 import KickedOverlay from '@/components/KickedOverlay';
 import { LivePreview } from '@/components/LivePreview';
 import TimeLapse from '@/components/TimeLapse';
-import EmojiSelectionOverlay from '@/components/EmojiSelectionOverlay';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
@@ -47,8 +46,8 @@ const Index = () => {
     ...initialPosition
   });
   
-  const [selectedEmoji, setSelectedEmoji] = useState<string>(''); // Always start empty - no session storage
-  const [isEmojiSelected, setIsEmojiSelected] = useState(false); // Always start false
+  const [selectedEmoji, setSelectedEmoji] = useState<string>('🎨'); // Default emoji
+  const [isEmojiSelected, setIsEmojiSelected] = useState(true); // Always true now
   const [isStarted, setIsStarted] = useState(false);
   const [userMousePosition, setUserMousePosition] = useState({ x: 0, y: 0 });
   const [collisionCount, setCollisionCount] = useState(0);
@@ -58,8 +57,6 @@ const Index = () => {
     if (sessionState.isKicked || (!sessionState.isConnected && isStarted)) {
       console.log('Session ended - resetting state');
       setIsStarted(false);
-      setIsEmojiSelected(false);
-      setSelectedEmoji('');
       setCollisionCount(0);
       // Generate new color for next session
       const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
@@ -196,22 +193,34 @@ const Index = () => {
         overscrollBehavior: 'none'
       }}
     >
-      {/* Emoji Selection Overlay - First Screen - Always shown when not selected */}
-      {!isEmojiSelected && (
-        <EmojiSelectionOverlay onEmojiSelected={(emoji) => {
-          setSelectedEmoji(emoji);
-          setIsEmojiSelected(true);
-          // Don't save to session storage - force selection each time
-        }} />
-      )}
-
-      {/* Start Window Overlay */}
-      {isEmojiSelected && !isStarted && (
+      {/* Start Window Overlay - Now includes everything */}
+      {!isStarted && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center relative max-h-[90vh] overflow-y-auto">            
-            <h1 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Welcome {selectedEmoji} to MultiPainteR
+            <h1 className="text-2xl md:text-3xl font-bold mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Welcome to MultiPainteR
             </h1>
+            
+            {/* Emoji Picker Slider */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-4">Choose Your Avatar {selectedEmoji}</h3>
+              <div className="grid grid-cols-6 gap-2 max-h-32 overflow-y-auto p-2 bg-muted/30 rounded-lg">
+                {['🎨', '😀', '😎', '🤖', '👨‍🎨', '👩‍🎨', '🦄', '🐱', '🐶', '🐸', '🦊', '🐻', '🎭', '🎪', '🌟', '⭐', '🔥', '💎', '🎯', '🚀', '🌈', '💫', '🎊', '🎉'].map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => setSelectedEmoji(emoji)}
+                    className={`text-2xl p-2 rounded-lg transition-all hover:scale-110 ${
+                      selectedEmoji === emoji 
+                        ? 'bg-primary text-primary-foreground scale-110' 
+                        : 'bg-muted hover:bg-muted/70'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
             <p className="text-muted-foreground mb-6">
               A collaborative painting experience on a massive 100 million pixel canvas!
             </p>
@@ -247,45 +256,41 @@ const Index = () => {
             
             <LivePreview playerCount={sessionState.playerCount} />
             
-            <button
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Start Painting button clicked');
-                const success = await joinSession();
-                if (success) {
-                  setIsStarted(true);
-                }
-              }}
-              disabled={!sessionState.canJoin}
-              className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors mb-4 cursor-pointer touch-manipulation"
-              style={{ pointerEvents: 'auto' }}
-            >
-              {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
-            </button>
-            
-            {/* Timelapse Button - smaller and under start button with better separation */}
-            <button
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Timelapse button clicked');
-                setIsTimeLapseOpen(true);
-                
-                // Also automatically start the session
-                if (!isStarted && sessionState.canJoin) {
-                  console.log('Auto-starting painting session from timelapse');
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={async () => {
+                  console.log('Start Painting button clicked');
                   const success = await joinSession();
                   if (success) {
                     setIsStarted(true);
                   }
-                }
-              }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400 cursor-pointer touch-manipulation"
-              style={{ pointerEvents: 'auto' }}
-            >
-              🎬 World Timelapse
-            </button>
+                }}
+                disabled={!sessionState.canJoin}
+                className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
+              >
+                {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
+              </button>
+              
+              <button
+                onClick={async () => {
+                  console.log('Timelapse button clicked');
+                  setIsTimeLapseOpen(true);
+                  
+                  // Also automatically start the session
+                  if (!isStarted && sessionState.canJoin) {
+                    console.log('Auto-starting painting session from timelapse');
+                    const success = await joinSession();
+                    if (success) {
+                      setIsStarted(true);
+                    }
+                  }
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400"
+              >
+                🎬 World Timelapse
+              </button>
+            </div>
           </div>
         </div>
       )}
