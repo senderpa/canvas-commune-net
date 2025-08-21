@@ -128,6 +128,33 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          action_count: number | null
+          action_type: string
+          created_at: string | null
+          id: string
+          player_id: string
+          window_start: string | null
+        }
+        Insert: {
+          action_count?: number | null
+          action_type: string
+          created_at?: string | null
+          id?: string
+          player_id: string
+          window_start?: string | null
+        }
+        Update: {
+          action_count?: number | null
+          action_type?: string
+          created_at?: string | null
+          id?: string
+          player_id?: string
+          window_start?: string | null
+        }
+        Relationships: []
+      }
       strokes: {
         Row: {
           color: string
@@ -183,11 +210,28 @@ export type Database = {
           collided_with_emoji: string
         }[]
       }
+      check_rate_limit: {
+        Args: {
+          p_action_type: string
+          p_max_actions?: number
+          p_player_id: string
+          p_window_minutes?: number
+        }
+        Returns: boolean
+      }
       cleanup_inactive_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      current_user_session_token: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       generate_anonymous_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      generate_secure_session_token: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
@@ -261,14 +305,25 @@ export type Database = {
         Returns: number
       }
       join_player_session: {
-        Args: {
-          p_anonymous_id: string
-          p_player_id: string
-          p_position_x?: number
-          p_position_y?: number
-          p_session_token: string
-        }
-        Returns: boolean
+        Args:
+          | {
+              p_anonymous_id: string
+              p_player_id: string
+              p_position_x?: number
+              p_position_y?: number
+              p_session_token: string
+            }
+          | {
+              p_anonymous_id: string
+              p_player_id: string
+              p_position_x?: number
+              p_position_y?: number
+              p_session_token?: string
+            }
+        Returns: {
+          session_token: string
+          success: boolean
+        }[]
       }
       leave_player_queue: {
         Args: { p_player_id: string }
@@ -286,8 +341,27 @@ export type Database = {
         Args: { p_session_token: string }
         Returns: undefined
       }
+      validate_drawing_input: {
+        Args: {
+          p_color: string
+          p_points: Json
+          p_size: number
+          p_tool: string
+          p_world_x: number
+          p_world_y: number
+        }
+        Returns: boolean
+      }
+      validate_emoji: {
+        Args: { p_emoji: string }
+        Returns: boolean
+      }
       validate_player_session: {
         Args: { session_player_id: string }
+        Returns: boolean
+      }
+      validate_session_ownership: {
+        Args: { p_session_token: string }
         Returns: boolean
       }
     }

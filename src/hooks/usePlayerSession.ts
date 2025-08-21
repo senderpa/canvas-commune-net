@@ -40,23 +40,22 @@ export const usePlayerSession = () => {
     return storedId;
   });
 
-  // Simple join session using database function
+  // Secure join session using server-generated tokens
   const joinSession = useCallback(async () => {
     try {
-      console.log('Attempting to join session using database function...');
+      console.log('Attempting to join session using secure database function...');
       
-      const sessionToken = crypto.randomUUID();
       const anonymousId = `Player_${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
       const position_x = Math.floor(Math.random() * (10000 - 512));
       const position_y = Math.floor(Math.random() * (10000 - 512));
 
-      // Use our new database function
-      const { data: success, error } = await supabase.rpc('join_player_session', {
+      // Use secure join_player_session function (server generates token)
+      const { data, error } = await supabase.rpc('join_player_session', {
         p_player_id: playerId,
-        p_session_token: sessionToken,
         p_anonymous_id: anonymousId,
         p_position_x: position_x,
         p_position_y: position_y
+        // p_session_token uses default (server-generated secure token)
       });
 
       if (error) {
@@ -64,23 +63,51 @@ export const usePlayerSession = () => {
         return false;
       }
 
-      if (!success) {
-        console.log('Room is full');
+      // Check if we got a result with success/session_token structure
+      if (!data || data.length === 0) {
+        console.log('No response from join session');
+        return false;
+      }
+
+      const result = data[0];
+      
+      if (!result.success) {
+        console.log('Room is full - trying to join queue');
+        
+        // Try to join queue instead
+        const queueResult = await supabase.rpc('join_player_queue', {
+          p_player_id: playerId,
+          p_session_token: null // Server will generate
+        });
+        
+        if (queueResult.error) {
+          console.error('Failed to join queue:', queueResult.error);
+          return false;
+        }
+        
         setSessionState(prev => ({
           ...prev,
           canJoin: false,
-          kickReason: 'full'
+          kickReason: 'full',
+          queuePosition: queueResult.data || 1
         }));
         return false;
       }
 
-      console.log('Successfully joined session');
+      const serverSessionToken = result.session_token;
+      
+      if (!serverSessionToken) {
+        console.error('No session token received from server');
+        return false;
+      }
+
+      console.log('Successfully joined session with secure token');
       setSessionState(prev => ({
         ...prev,
         isConnected: true,
         canJoin: true,
         playerId,
-        sessionToken,
+        sessionToken: serverSessionToken,
         isKicked: false,
         kickReason: null,
       }));

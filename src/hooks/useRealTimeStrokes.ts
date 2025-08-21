@@ -53,10 +53,57 @@ export const useRealTimeStrokes = () => {
     }
   }, []);
 
-  // Add a new stroke
+  // Add a new stroke with security validation
   const addStroke = useCallback(async (strokeInput: StrokeInput) => {
     try {
-      console.log('Adding stroke to database:', strokeInput);
+      console.log('Adding stroke to database with validation:', strokeInput);
+      
+      // Client-side validation first (basic checks)
+      if (!strokeInput.player_id || !strokeInput.points || strokeInput.points.length === 0) {
+        console.error('Invalid stroke input: missing required fields');
+        return null;
+      }
+      
+      // Validate coordinates are within reasonable bounds
+      if (strokeInput.world_x < 0 || strokeInput.world_x > 50000 || 
+          strokeInput.world_y < 0 || strokeInput.world_y > 50000) {
+        console.error('Invalid stroke coordinates');
+        return null;
+      }
+      
+      // Validate points array size (prevent DOS)
+      if (strokeInput.points.length > 1000) {
+        console.error('Too many points in stroke');
+        return null;
+      }
+      
+      // Check rate limiting before proceeding
+      const rateLimitCheck = await supabase.rpc('check_rate_limit', {
+        p_player_id: strokeInput.player_id,
+        p_action_type: 'stroke_create',
+        p_max_actions: 60, // Max 60 strokes per minute
+        p_window_minutes: 1
+      });
+      
+      if (rateLimitCheck.error || !rateLimitCheck.data) {
+        console.error('Rate limit exceeded or check failed');
+        return null;
+      }
+      
+      // Server-side input validation
+      const validationResult = await supabase.rpc('validate_drawing_input', {
+        p_points: strokeInput.points,
+        p_world_x: strokeInput.world_x,
+        p_world_y: strokeInput.world_y,
+        p_size: strokeInput.size,
+        p_color: strokeInput.color,
+        p_tool: strokeInput.tool
+      });
+      
+      if (validationResult.error || !validationResult.data) {
+        console.error('Server validation failed:', validationResult.error);
+        return null;
+      }
       
       // Add stroke optimistically to local state immediately
       const optimisticStroke: Stroke = {
