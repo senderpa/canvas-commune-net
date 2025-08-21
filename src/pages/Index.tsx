@@ -195,8 +195,20 @@ const Index = () => {
     >
       {/* Start Window Overlay - Now includes everything */}
       {!isStarted && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center relative max-h-[90vh] overflow-y-auto">            
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            console.log('Overlay clicked', e.target);
+            e.stopPropagation();
+          }}
+        >
+          <div 
+            className="bg-card border border-border rounded-xl p-6 max-w-md w-full text-center relative max-h-[90vh] overflow-y-auto"
+            onClick={(e) => {
+              console.log('Modal content clicked', e.target);
+              e.stopPropagation();
+            }}
+          >            
             <h1 className="text-2xl md:text-3xl font-bold mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Welcome to MultiPainteR
             </h1>
@@ -260,23 +272,26 @@ const Index = () => {
             <div className="space-y-3">
               <button
                 onClick={async (e) => {
+                  console.log('START BUTTON CLICKED!', e);
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Start Painting button clicked');
+                  console.log('Start Painting button clicked, canJoin:', sessionState.canJoin);
                   const success = await joinSession();
+                  console.log('joinSession result:', success);
                   if (success) {
                     setIsStarted(true);
+                    console.log('Set isStarted to true');
                   }
                 }}
                 disabled={!sessionState.canJoin}
-                className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors cursor-pointer touch-manipulation"
-                style={{ pointerEvents: 'auto' }}
+                className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors cursor-pointer"
               >
                 {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
               </button>
               
               <button
                 onClick={async (e) => {
+                  console.log('TIMELAPSE BUTTON CLICKED!', e);
                   e.preventDefault();
                   e.stopPropagation();
                   console.log('Timelapse button clicked');
@@ -291,8 +306,7 @@ const Index = () => {
                     }
                   }
                 }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400 cursor-pointer touch-manipulation"
-                style={{ pointerEvents: 'auto' }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400 cursor-pointer"
               >
                 🎬 World Timelapse
               </button>
