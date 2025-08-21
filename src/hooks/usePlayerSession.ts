@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -61,34 +62,50 @@ export const usePlayerSession = () => {
     return storedId;
   });
 
+  // Enhanced cleanup function with better error handling
+  const cleanupPlayerSessions = useCallback(async (playerIdToClean: string) => {
+    console.log('Starting cleanup for player:', playerIdToClean);
+    
+    try {
+      // Clean up sessions first
+      const { error: sessionError } = await supabase
+        .from('player_sessions')
+        .delete()
+        .eq('player_id', playerIdToClean);
+      
+      if (sessionError && sessionError.code !== '23503') {
+        console.log('Session cleanup error (may be expected):', sessionError);
+      }
+      
+      // Clean up queue entries
+      const { error: queueError } = await supabase
+        .from('player_queue')
+        .delete()
+        .eq('player_id', playerIdToClean);
+      
+      if (queueError && queueError.code !== '23503') {
+        console.log('Queue cleanup error (may be expected):', queueError);
+      }
+      
+      console.log('Cleanup completed for player:', playerIdToClean);
+      
+      // Wait a bit longer for database operations to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+    } catch (error) {
+      console.log('Cleanup error (may be expected):', error);
+    }
+  }, []);
+
   // Join session (only called when clicking "Start Painting")
   const joinSession = useCallback(async () => {
     try {
       console.log('Attempting to join session...');
       
-      // First, clean up any existing sessions for this playerId to prevent duplicates on reload
-      try {
-        await supabase
-          .from('player_sessions')
-          .delete()
-          .eq('player_id', playerId);
-      } catch (cleanupError) {
-        console.log('Session cleanup error (expected):', cleanupError);
-      }
-      
-      try {
-        await supabase
-          .from('player_queue')
-          .delete()
-          .eq('player_id', playerId);
-      } catch (cleanupError) {
-        console.log('Queue cleanup error (expected):', cleanupError);
-      }
+      // First, clean up any existing sessions for this playerId
+      await cleanupPlayerSessions(playerId);
 
-      // Small delay to ensure cleanup is processed
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Use secure function to check player count
+      // Check player count using secure function
       const { data: playerCountData, error: countError } = await supabase
         .rpc('get_active_player_count');
 
@@ -134,7 +151,7 @@ export const usePlayerSession = () => {
         return false;
       }
 
-      // Room has space - join directly with retry logic
+      // Room has space - join directly with improved retry logic
       const sessionToken = crypto.randomUUID();
       const sessionData = {
         player_id: playerId,
@@ -149,16 +166,24 @@ export const usePlayerSession = () => {
       };
 
       let retries = 0;
+      const maxRetries = 5;
       let lastError = null;
 
-      while (retries < 3) {
+      while (retries < maxRetries) {
         try {
+          // Clean up again before each retry
+          if (retries > 0) {
+            console.log(`Retry ${retries}: Cleaning up again...`);
+            await cleanupPlayerSessions(playerId);
+          }
+
           const { error: insertError } = await supabase
             .from('player_sessions')
             .insert([sessionData]);
 
           if (!insertError) {
             // Success!
+            console.log('Successfully joined session');
             setSessionState(prev => ({
               ...prev,
               isConnected: true,
@@ -175,50 +200,36 @@ export const usePlayerSession = () => {
           lastError = insertError;
 
           if (insertError.code === '23505') { // Duplicate key constraint
-            console.log(`Retry ${retries + 1}: Duplicate key, cleaning up again...`);
-            
-            // Clean up again and retry with exponential backoff
-            await supabase
-              .from('player_sessions')
-              .delete()
-              .eq('player_id', playerId);
-
-            await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, retries)));
+            console.log(`Retry ${retries + 1}: Duplicate key, will clean up and retry...`);
             retries++;
+            // Exponential backoff with longer delays
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
           } else {
             throw insertError;
           }
         } catch (insertError) {
           lastError = insertError;
           retries++;
-          if (retries < 3) {
-            await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, retries)));
+          if (retries < maxRetries) {
+            console.log(`Error on retry ${retries}, waiting before next attempt...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
           }
         }
       }
 
-      console.error('Error joining session after retries:', lastError);
+      console.error('Error joining session after all retries:', lastError);
       return false;
     } catch (error) {
       console.error('Join session error:', error);
       return false;
     }
-  }, [playerId]);
+  }, [playerId, cleanupPlayerSessions]);
 
   // Leave session
   const leaveSession = useCallback(async () => {
     try {
-      // Remove from active sessions
-      await supabase
-        .from('player_sessions')
-        .delete()
-        .eq('player_id', playerId);
-
-      // Remove from queue if present
-      await supabase
-        .from('player_queue')
-        .delete()
-        .eq('player_id', playerId);
+      console.log('Leaving session for player:', playerId);
+      await cleanupPlayerSessions(playerId);
 
       setSessionState(prev => ({
         ...prev,
@@ -230,7 +241,7 @@ export const usePlayerSession = () => {
     } catch (error) {
       console.error('Leave session error:', error);
     }
-  }, [playerId]);
+  }, [playerId, cleanupPlayerSessions]);
 
   // Update activity
   const updateActivity = useCallback(async () => {
@@ -308,67 +319,33 @@ export const usePlayerSession = () => {
 
     // Cleanup function to remove current player
     const cleanup = async () => {
-      try {
-        await supabase
-          .from('player_sessions')
-          .delete()
-          .eq('player_id', playerId);
-        
-        await supabase
-          .from('player_queue')
-          .delete()
-          .eq('player_id', playerId);
-        
-        console.log('Cleaned up player session:', playerId);
-      } catch (error) {
-        console.error('Cleanup error:', error);
+      if (sessionState.isConnected) {
+        console.log('Running cleanup for connected player');
+        await cleanupPlayerSessions(playerId);
       }
     };
 
-    // Add cleanup listeners for page unload
+    // REMOVED the aggressive visibility change handler that was causing immediate logouts
+    // Users should only be logged out due to inactivity timeout or manual leave
+
+    // Add cleanup listeners for page unload only
     const handleBeforeUnload = () => {
-      console.log('Page unloading - cleaning up session immediately');
+      console.log('Page unloading - cleaning up session');
       if (sessionState.isConnected && playerId) {
         // Use sendBeacon for reliable cleanup on page unload
         const data = JSON.stringify({ player_id: playerId });
-        navigator.sendBeacon('/api/cleanup-player', data);
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/cleanup-player', data);
+        }
         
         // Also try direct cleanup
         cleanup();
-        
-        // Set kicked state for restart prompt
-        setSessionState(prev => ({
-          ...prev,
-          isConnected: false,
-          isKicked: true,
-          kickReason: 'disconnected',
-          canJoin: true,
-          playerCount: Math.max(0, prev.playerCount - 1)
-        }));
       }
     };
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && sessionState.isConnected) {
-        console.log('Page hidden - cleaning up session');
-        cleanup();
-        
-        // Set kicked state for restart prompt  
-        setSessionState(prev => ({
-          ...prev,
-          isConnected: false,
-          isKicked: true,
-          kickReason: 'disconnected',
-          canJoin: true,
-          playerCount: Math.max(0, prev.playerCount - 1)
-        }));
-      }
-    };
-
-    // Add event listeners
+    // Only add beforeunload handler, not visibility change
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Refresh player count and queue using secure functions
     const refreshPlayerCount = async () => {
@@ -426,13 +403,13 @@ export const usePlayerSession = () => {
       activityInterval = setInterval(updateActivity, 30000); // Every 30 seconds
     }
 
-    // Set up cleanup interval - more aggressive cleanup
+    // Set up cleanup interval - less aggressive cleanup
     cleanupInterval = setInterval(async () => {
       try {
         // Use the cleanup function from the database
         await supabase.rpc('cleanup_inactive_sessions');
 
-        // Check if current player was kicked
+        // Check if current player was kicked (only if they think they're connected)
         if (sessionState.isConnected) {
           const { data: currentSession } = await supabase
             .from('player_sessions')
@@ -441,13 +418,14 @@ export const usePlayerSession = () => {
             .single();
 
           if (!currentSession) {
-            // Player was kicked
+            // Player was kicked due to inactivity/timeout
+            console.log('Player session was cleaned up by server');
             setSessionState(prev => ({
               ...prev,
               isConnected: false,
               isKicked: true,
               kickReason: 'timeout',
-              canJoin: false,
+              canJoin: true, // Allow them to rejoin
             }));
           }
         }
@@ -456,7 +434,7 @@ export const usePlayerSession = () => {
       } catch (error) {
         console.error('Cleanup error:', error);
       }
-    }, 15000); // Every 15 seconds for more responsive cleanup
+    }, 30000); // Every 30 seconds - less aggressive
 
     return () => {
       // Cleanup subscriptions
@@ -467,14 +445,13 @@ export const usePlayerSession = () => {
       // Remove event listeners
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       
       // Final cleanup
       if (sessionState.isConnected) {
         cleanup();
       }
     };
-  }, [sessionState.isConnected, updateActivity, playerId]);
+  }, [sessionState.isConnected, updateActivity, playerId, cleanupPlayerSessions]);
 
   // Cleanup on unmount
   useEffect(() => {
