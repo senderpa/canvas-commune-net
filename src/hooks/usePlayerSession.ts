@@ -171,16 +171,23 @@ export const usePlayerSession = () => {
     if (!sessionState.isConnected || !sessionState.sessionToken) return;
 
     try {
-      await supabase
+      console.log('Updating position to:', x, y);
+      const { error } = await supabase
         .from('player_sessions')
-        .update({ 
+        .update({
           position_x: Math.floor(x),
           position_y: Math.floor(y),
           last_activity: new Date().toISOString()
         })
         .eq('session_token', sessionState.sessionToken);
+      
+      if (error) {
+        console.error('Position update error:', error);
+      } else {
+        console.log('Position updated successfully');
+      }
     } catch (error) {
-      console.log('Position update failed');
+      console.error('Position update failed:', error);
     }
   }, [sessionState.isConnected, sessionState.sessionToken]);
 
