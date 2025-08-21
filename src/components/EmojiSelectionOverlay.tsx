@@ -26,15 +26,28 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
   
   // Auto-scroll effect for slot machine feel
   useEffect(() => {
+    let autoScrollInterval: NodeJS.Timeout;
+    
     const startAutoScroll = () => {
-      if (autoScrollRef.current) return; // Don't start if already scrolling
+      if (autoScrollRef.current || isScrolling) return; // Don't start if already scrolling
       
       setIsScrolling(true);
       let scrollSpeed = 1;
       let direction = Math.random() > 0.5 ? 1 : -1;
       let targetIndex = selectedIndex;
+      let frameCount = 0;
+      const maxFrames = 60; // Limit animation frames to prevent infinite loops
       
       const scroll = () => {
+        frameCount++;
+        
+        // Force stop after max frames to prevent infinite loops
+        if (frameCount >= maxFrames) {
+          setIsScrolling(false);
+          autoScrollRef.current = undefined;
+          return;
+        }
+        
         targetIndex += direction * scrollSpeed;
         
         if (targetIndex < 0) targetIndex = emojis.length - 1;
@@ -43,9 +56,9 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
         setSelectedIndex(targetIndex);
         
         // Gradually slow down
-        scrollSpeed *= 0.98;
+        scrollSpeed *= 0.95;
         
-        if (scrollSpeed > 0.05) {
+        if (scrollSpeed > 0.02) {
           autoScrollRef.current = requestAnimationFrame(scroll);
         } else {
           setIsScrolling(false);
@@ -56,30 +69,36 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
       autoScrollRef.current = requestAnimationFrame(scroll);
     };
     
-    // Start auto scroll every 3-5 seconds when not interacting
-    const interval = setInterval(() => {
-      if (!isScrolling && Math.random() > 0.7) {
-        startAutoScroll();
-      }
-    }, 1000);
+    // Start auto scroll every 4-6 seconds when not interacting
+    const startInterval = () => {
+      autoScrollInterval = setInterval(() => {
+        if (!isScrolling && !autoScrollRef.current && Math.random() > 0.8) {
+          startAutoScroll();
+        }
+      }, 2000);
+    };
+    
+    // Delay initial start
+    const initialTimeout = setTimeout(startInterval, 3000);
     
     return () => {
-      clearInterval(interval);
+      clearTimeout(initialTimeout);
+      clearInterval(autoScrollInterval);
       if (autoScrollRef.current) {
         cancelAnimationFrame(autoScrollRef.current);
+        autoScrollRef.current = undefined;
       }
+      setIsScrolling(false);
     };
   }, [selectedIndex, isScrolling]);
   
   const handleScroll = (direction: 1 | -1) => {
-    if (isScrolling) return;
-    
-    // Stop auto scroll
+    // Stop auto scroll and clear any pending animations
     if (autoScrollRef.current) {
       cancelAnimationFrame(autoScrollRef.current);
       autoScrollRef.current = undefined;
-      setIsScrolling(false);
     }
+    setIsScrolling(false);
     
     let newIndex = selectedIndex + direction;
     if (newIndex < 0) newIndex = emojis.length - 1;
@@ -88,14 +107,12 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
   };
   
   const handleEmojiClick = (index: number) => {
-    if (isScrolling) return;
-    
-    // Stop any auto scroll
+    // Stop any auto scroll and clear animations
     if (autoScrollRef.current) {
       cancelAnimationFrame(autoScrollRef.current);
       autoScrollRef.current = undefined;
-      setIsScrolling(false);
     }
+    setIsScrolling(false);
     
     setSelectedIndex(index);
   };
@@ -184,7 +201,7 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
         {/* Pick button */}
         <Button
           onClick={() => {
-            // Stop any ongoing scroll
+            // Force stop any ongoing animations and reset state
             if (autoScrollRef.current) {
               cancelAnimationFrame(autoScrollRef.current);
               autoScrollRef.current = undefined;
@@ -194,13 +211,23 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
             // Save to session storage
             sessionStorage.setItem('selectedEmoji', selectedEmoji);
             
-            onEmojiSelected(selectedEmoji);
+            // Small delay to ensure state is updated
+            setTimeout(() => {
+              onEmojiSelected(selectedEmoji);
+            }, 50);
           }}
           disabled={isScrolling}
           size="lg"
-          className="w-full text-xl py-6 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg"
+          className="w-full text-xl py-6 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          🎯 Pick This Emoji!
+          {isScrolling ? (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Spinning...
+            </div>
+          ) : (
+            '🎯 Pick This Emoji!'
+          )}
         </Button>
         
         {isScrolling && (
