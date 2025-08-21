@@ -18,11 +18,10 @@ interface WorldMinimapProps {
   lastStrokeY: number;
   strokes: Stroke[];
   currentPlayerId?: string;
-  selectedEmoji: string;
   onClose: () => void;
 }
 
-const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, currentPlayerId, selectedEmoji, onClose }: WorldMinimapProps) => {
+const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, currentPlayerId, onClose }: WorldMinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(0.06); // Show full world (10000 pixels in 600px canvas = 0.06)
   const [panX, setPanX] = useState(5000); // Center of world (10000/2)
@@ -226,39 +225,33 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
         ctx.lineWidth = Math.max(0.5, 2 * zoom);
         ctx.stroke();
         
-        // Draw player emoji instead of tool indicator
-        ctx.fillStyle = '#000000';
-        ctx.font = `${Math.max(12, 18 * zoom)}px Arial`; // 3x bigger emojis
-        ctx.textAlign = 'center';
-        
-        // Generate consistent emoji for each player
-        const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍'];
-        const playerEmoji = emojis[player.player_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % emojis.length];
-        
-        ctx.fillText(playerEmoji, playerX, playerY);
+        // Draw small tool indicator
+        if (zoom > 0.3) {
+          ctx.fillStyle = '#000000';
+          ctx.font = `${Math.max(8, 12 * zoom)}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.fillText(
+            player.current_tool === 'eraser' ? '🧹' : '🖌️', 
+            playerX, 
+            playerY - Math.max(10, 15 * zoom)
+          );
+        }
       }
     });
 
-    // Draw current player emoji instead of dot - show where last stroke ended
+    // Draw current player position with blinking dot - show where last stroke ended
     const playerCanvasX = ((lastStrokeX - panX) * zoom) + minimapSize / 2;
     const playerCanvasY = ((lastStrokeY - panY) * zoom) + minimapSize / 2;
 
-    // Draw player emoji with blinking effect
-    ctx.save();
-    if (isBlinking) {
-      ctx.globalAlpha = 1;
-      ctx.shadowColor = '#ff0000';
-      ctx.shadowBlur = Math.max(2, 10 * zoom);
-    } else {
-      ctx.globalAlpha = 0.8;
-    }
-    
-    ctx.fillStyle = '#000000';
-    ctx.font = `${Math.max(12, 18 * zoom)}px Arial`; // 3x bigger
-    ctx.textAlign = 'center';
-    ctx.fillText(selectedEmoji, playerCanvasX, playerCanvasY);
-    ctx.restore();
-  }, [strokes, worldX, worldY, lastStrokeX, lastStrokeY, drawStroke, zoom, panX, panY, minimapSize, isBlinking, otherPlayers, selectedEmoji]);
+    // Always draw player dot, make it blink
+    ctx.beginPath();
+    ctx.arc(playerCanvasX, playerCanvasY, Math.max(3, 6 * zoom), 0, 2 * Math.PI);
+    ctx.fillStyle = isBlinking ? '#ff0000' : '#ff6666';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1, 2 * zoom);
+    ctx.stroke();
+  }, [strokes, worldX, worldY, lastStrokeX, lastStrokeY, drawStroke, zoom, panX, panY, minimapSize, isBlinking, otherPlayers]);
 
   // Update canvas when anything changes
   useEffect(() => {

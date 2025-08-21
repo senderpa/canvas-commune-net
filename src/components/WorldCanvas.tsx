@@ -1,7 +1,6 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { PaintState } from '@/pages/Index';
 import EdgeIndicators from './EdgeIndicators';
-import { useOtherPlayers } from '@/hooks/useOtherPlayers';
 
 interface Stroke {
   id: string;
@@ -20,27 +19,9 @@ interface WorldCanvasProps {
   strokeCount: number;
   playerCount: number;
   isConnected: boolean;
-  selectedEmoji: string;
-  userMousePosition: { x: number; y: number };
-  onMouseMove: (position: { x: number; y: number }) => void;
-  collisionCount: number;
-  onCollision: () => void;
 }
 
-const WorldCanvas = ({ 
-  paintState, 
-  strokes, 
-  onMove, 
-  onStroke, 
-  strokeCount, 
-  playerCount, 
-  isConnected, 
-  selectedEmoji, 
-  userMousePosition, 
-  onMouseMove, 
-  collisionCount, 
-  onCollision 
-}: WorldCanvasProps) => {
+const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playerCount, isConnected }: WorldCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
@@ -49,14 +30,6 @@ const WorldCanvas = ({
   // Smooth edge panning state
   const edgePanVelocityRef = useRef({ x: 0, y: 0 });
   const lastEdgePanTimeRef = useRef(0);
-  
-  // Emoji positioning and collision state
-  const [emojiPosition, setEmojiPosition] = useState({ x: 0, y: 0 });
-  const [isEmojiHit, setIsEmojiHit] = useState(false);
-  const [lastHitTime, setLastHitTime] = useState(0);
-  
-  // Import other players hook
-  const { otherPlayers } = useOtherPlayers();
 
   // Dynamic canvas size: starts at 512x512, grows by 1 pixel per stroke, max 30% of world (3000x3000)
   const getCanvasSize = useCallback(() => {
@@ -237,49 +210,7 @@ const WorldCanvas = ({
       };
       drawStroke(ctx, currentStroke);
     }
-    
-    // Draw other players' emojis
-    otherPlayers.forEach((player, index) => {
-      const emojiViewportPos = worldToViewport(player.position_x, player.position_y);
-      if (emojiViewportPos.x >= -50 && emojiViewportPos.x <= canvasSize + 50 && 
-          emojiViewportPos.y >= -50 && emojiViewportPos.y <= canvasSize + 50) {
-        
-        // Generate consistent emoji for each player (based on player_id)
-        const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍'];
-        const playerEmoji = emojis[player.player_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % emojis.length];
-        
-        ctx.font = '60px Arial'; // 3x bigger
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(playerEmoji, emojiViewportPos.x, emojiViewportPos.y);
-      }
-    });
-    
-    // Draw current player emoji
-    if (selectedEmoji && emojiPosition.x !== 0 && emojiPosition.y !== 0) {
-      const emojiViewportPos = worldToViewport(emojiPosition.x, emojiPosition.y);
-      
-      ctx.save();
-      
-      // Pulsation and red flash when hit
-      if (isEmojiHit) {
-        ctx.globalAlpha = 0.8;
-        ctx.shadowColor = 'red';
-        ctx.shadowBlur = 20;
-        ctx.transform(1.2, 0, 0, 1.2, emojiViewportPos.x * 0.2, emojiViewportPos.y * 0.2); // Scale up when hit
-      } else if (collisionCount > 0) {
-        const pulseScale = 1 + Math.sin(Date.now() * 0.01) * 0.1;
-        ctx.transform(pulseScale, 0, 0, pulseScale, emojiViewportPos.x * (1 - pulseScale), emojiViewportPos.y * (1 - pulseScale));
-      }
-      
-      ctx.font = '60px Arial'; // 3x bigger
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(selectedEmoji, emojiViewportPos.x, emojiViewportPos.y);
-      
-      ctx.restore();
-    }
-  }, [strokes, worldToViewport, drawStroke, paintState, getCanvasSize, otherPlayers, selectedEmoji, emojiPosition, isEmojiHit, collisionCount]);
+  }, [strokes, worldToViewport, drawStroke, paintState, getCanvasSize]);
 
   // Re-render when viewport or strokes change
   useEffect(() => {
@@ -315,43 +246,13 @@ const WorldCanvas = ({
   }, [getCanvasPoint, viewportToWorld, renderStrokes]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    const point = getCanvasPoint(e);
-    if (!point) return;
-    
-    const worldPos = viewportToWorld(point.x, point.y);
-    
-    // Update emoji position - constrain to canvas bounds
-    const canvasSize = getCanvasSize();
-    const constrainedPos = {
-      x: Math.max(paintState.x + 30, Math.min(paintState.x + canvasSize - 30, worldPos.x)),
-      y: Math.max(paintState.y + 30, Math.min(paintState.y + canvasSize - 30, worldPos.y))
-    };
-    setEmojiPosition(constrainedPos);
-    onMouseMove(constrainedPos);
-    
-    // Check for collisions with other players
-    otherPlayers.forEach(player => {
-      const distance = Math.sqrt(
-        Math.pow(constrainedPos.x - player.position_x, 2) + 
-        Math.pow(constrainedPos.y - player.position_y, 2)
-      );
-      
-      if (distance < 50) { // Collision threshold
-        const now = Date.now();
-        if (now - lastHitTime > 500) { // Prevent rapid collision spam
-          setIsEmojiHit(true);
-          setLastHitTime(now);
-          onCollision();
-          
-          // Reset hit animation after 300ms
-          setTimeout(() => setIsEmojiHit(false), 300);
-        }
-      }
-    });
-    
     if (!isDrawingRef.current) return;
 
+    const point = getCanvasPoint(e);
+    if (!point) return;
+
     // Add point to current stroke in world coordinates
+    const worldPos = viewportToWorld(point.x, point.y);
     currentStrokeRef.current.push(worldPos);
 
     // Throttle re-rendering during drawing to prevent mobile glitches
@@ -361,7 +262,7 @@ const WorldCanvas = ({
 
     // Handle edge panning while drawing
     handleEdgePanning(e.clientX, e.clientY);
-  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, otherPlayers, onMouseMove, onCollision, lastHitTime, getCanvasSize]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning]);
 
   const handlePointerUp = useCallback(() => {
     if (isDrawingRef.current && currentStrokeRef.current.length > 0) {

@@ -11,7 +11,6 @@ import QueueOverlay from '@/components/QueueOverlay';
 import KickedOverlay from '@/components/KickedOverlay';
 import { LivePreview } from '@/components/LivePreview';
 import TimeLapse from '@/components/TimeLapse';
-import EmojiSelectionOverlay from '@/components/EmojiSelectionOverlay';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
@@ -46,11 +45,7 @@ const Index = () => {
     ...initialPosition
   });
   
-  const [selectedEmoji, setSelectedEmoji] = useState<string>('');
-  const [isEmojiSelected, setIsEmojiSelected] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
-  const [userMousePosition, setUserMousePosition] = useState({ x: 0, y: 0 });
-  const [collisionCount, setCollisionCount] = useState(0);
   
   // Generate new random color on each session start
   useEffect(() => {
@@ -188,20 +183,12 @@ const Index = () => {
         overscrollBehavior: 'none'
       }}
     >
-      {/* Emoji Selection Overlay - First Screen */}
-      {!isEmojiSelected && (
-        <EmojiSelectionOverlay onEmojiSelected={(emoji) => {
-          setSelectedEmoji(emoji);
-          setIsEmojiSelected(true);
-        }} />
-      )}
-
       {/* Start Window Overlay */}
-      {isEmojiSelected && !isStarted && (
+      {!isStarted && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full mx-4 text-center">
             <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Welcome {selectedEmoji} to MultiPainteR
+              Welcome to MultiPainteR
             </h1>
             <p className="text-muted-foreground mb-6">
               A collaborative painting experience on a massive 100 million pixel canvas!
@@ -311,21 +298,6 @@ const Index = () => {
               strokeCount={strokes.length}
               playerCount={sessionState.playerCount}
               isConnected={sessionState.isConnected}
-              selectedEmoji={selectedEmoji}
-              userMousePosition={userMousePosition}
-              onMouseMove={setUserMousePosition}
-              collisionCount={collisionCount}
-              onCollision={() => {
-                setCollisionCount(prev => {
-                  const newCount = prev + 1;
-                  if (newCount >= 3) {
-                    // Disconnect user after 3 collisions
-                    leaveSession();
-                    setIsStarted(false);
-                  }
-                  return newCount;
-                });
-              }}
             />
           </div>
 
@@ -400,7 +372,6 @@ const Index = () => {
               lastStrokeY={lastStrokePosition.y}
               strokes={canvasStrokes}
               currentPlayerId={sessionState.playerId || undefined}
-              selectedEmoji={selectedEmoji}
               onClose={() => setIsMapOpen(false)}
             />
           )}
