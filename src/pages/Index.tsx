@@ -7,6 +7,7 @@ import InfoDialog from '@/components/InfoDialog';
 import AnimationReplay from '@/components/AnimationReplay';
 import WorldMinimap from '@/components/WorldMinimap';
 import MobileOverlay from '@/components/MobileOverlay';
+import MobileControls from '@/components/MobileControls';
 import QueueOverlay from '@/components/QueueOverlay';
 import KickedOverlay from '@/components/KickedOverlay';
 import { LivePreview } from '@/components/LivePreview';
@@ -416,19 +417,24 @@ const Index = () => {
 
           {/* Mobile UI */}
           {isMobile && (
-            <MobileOverlay
-              paintState={paintState}
-              onColorChange={handleColorChange}
-              onToolChange={handleToolChange}
-              onSizeChange={handleSizeChange}
-              onMove={handleMove}
-                onInfoOpen={() => setIsInfoOpen(true)}
-                onPlayOpen={() => setIsPlayOpen(true)}
-                onMapOpen={() => setIsMapOpen(true)}
-              strokeCount={strokes.length}
-              playerCount={sessionState.playerCount}
-              isConnected={sessionState.isConnected}
-            />
+            <>
+              <MobileOverlay
+                paintState={paintState}
+                onColorChange={handleColorChange}
+                onToolChange={handleToolChange}
+                onSizeChange={handleSizeChange}
+                onMove={handleMove}
+                  onInfoOpen={() => setIsInfoOpen(true)}
+                  onPlayOpen={() => setIsPlayOpen(true)}
+                  onMapOpen={() => setIsMapOpen(true)}
+                strokeCount={strokes.length}
+                playerCount={sessionState.playerCount}
+                isConnected={sessionState.isConnected}
+              />
+              
+              {/* Mobile movement controls */}
+              <MobileControls onMove={handleMove} />
+            </>
           )}
 
           {/* Dialogs & Overlays */}

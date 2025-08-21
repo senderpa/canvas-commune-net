@@ -78,10 +78,10 @@ const WorldCanvas = ({
     return dynamicSize;
   }, [strokeCount]);
 
-  // Smooth edge panning with acceleration when painting near borders
+  // Smooth edge panning with acceleration when near borders
   const handleEdgePanning = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
-    if (!canvas || !isDrawingRef.current) return;
+    if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left;
@@ -499,10 +499,8 @@ const WorldCanvas = ({
       });
     }
 
-    // Handle edge panning while drawing (less frequent)
-    if (now - lastStrokePoint.current > 10) {
-      handleEdgePanning(e.clientX, e.clientY);
-    }
+    // Handle edge panning for movement (always active)
+    handleEdgePanning(e.clientX, e.clientY);
   }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, onMouseMove, onCollision, lastHitTime, getCanvasSize, currentSessionToken, emojiPosition]);
 
   const handlePointerUp = useCallback(() => {
