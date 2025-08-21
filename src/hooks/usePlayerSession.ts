@@ -88,11 +88,9 @@ export const usePlayerSession = () => {
     try {
       console.log('Attempting to join session...');
       
-      // Set RLS context for this player
-      await supabase.rpc('set_config', {
-        setting_name: 'myapp.current_player_id',
-        setting_value: playerId,
-        is_local: true
+      // Set RLS context for this player using the new function
+      await supabase.rpc('set_player_context', {
+        player_id_value: playerId
       });
       
       // Single cleanup attempt
@@ -206,11 +204,16 @@ export const usePlayerSession = () => {
     }
   }, [playerId, cleanupPlayerSessions]);
 
-  // Simplified activity update
+  // Update activity with RLS context
   const updateActivity = useCallback(async () => {
     if (!sessionState.isConnected || !sessionState.sessionToken) return;
 
     try {
+      // Set RLS context before updating
+      await supabase.rpc('set_player_context', {
+        player_id_value: sessionState.playerId || playerId
+      });
+      
       await supabase
         .from('player_sessions')
         .update({ last_activity: new Date().toISOString() })
@@ -225,13 +228,18 @@ export const usePlayerSession = () => {
         kickReason: 'disconnected'
       }));
     }
-  }, [sessionState.isConnected, sessionState.sessionToken]);
+  }, [sessionState.isConnected, sessionState.sessionToken, sessionState.playerId, playerId]);
 
-  // Update position
+  // Update position with RLS context
   const updatePosition = useCallback(async (x: number, y: number) => {
     if (!sessionState.isConnected || !sessionState.sessionToken) return;
 
     try {
+      // Set RLS context before updating
+      await supabase.rpc('set_player_context', {
+        player_id_value: sessionState.playerId || playerId
+      });
+      
       await supabase
         .from('player_sessions')
         .update({ 
@@ -243,13 +251,18 @@ export const usePlayerSession = () => {
     } catch (error) {
       console.log('Position update failed');
     }
-  }, [sessionState.isConnected, sessionState.sessionToken]);
+  }, [sessionState.isConnected, sessionState.sessionToken, sessionState.playerId, playerId]);
 
-  // Update paint state
+  // Update paint state with RLS context
   const updatePaintState = useCallback(async (color?: string, tool?: string, size?: number) => {
     if (!sessionState.isConnected || !sessionState.sessionToken) return;
 
     try {
+      // Set RLS context before updating
+      await supabase.rpc('set_player_context', {
+        player_id_value: sessionState.playerId || playerId
+      });
+      
       const updates: any = { last_activity: new Date().toISOString() };
       if (color !== undefined) updates.current_color = color;
       if (tool !== undefined) updates.current_tool = tool;
@@ -262,7 +275,7 @@ export const usePlayerSession = () => {
     } catch (error) {
       console.log('Paint state update failed');
     }
-  }, [sessionState.isConnected, sessionState.sessionToken]);
+  }, [sessionState.isConnected, sessionState.sessionToken, sessionState.playerId, playerId]);
 
   // Set up effects and cleanup
   useEffect(() => {
