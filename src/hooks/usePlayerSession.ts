@@ -12,10 +12,6 @@ export interface PlayerSession {
   current_color?: string;
   current_tool?: string;
   current_size?: number;
-  selected_emoji?: string;
-  collision_count?: number;
-  is_hit?: boolean;
-  hit_timestamp?: string;
 }
 
 export interface SessionState {
@@ -25,9 +21,8 @@ export interface SessionState {
   canJoin: boolean;
   queuePosition: number;
   isKicked: boolean;
-  kickReason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | 'collision' | null;
+  kickReason: 'timeout' | 'inactivity' | 'full' | 'disconnected' | null;
   playerId: string | null;
-  selectedEmoji: string | null;
 }
 
 const MAX_PLAYERS = 100;
@@ -44,7 +39,6 @@ export const usePlayerSession = () => {
     isKicked: false,
     kickReason: null,
     playerId: null,
-    selectedEmoji: null,
   });
 
   const [playerId] = useState(() => {
@@ -57,8 +51,8 @@ export const usePlayerSession = () => {
     return storedId;
   });
 
-  // Join session with emoji (only called when clicking "Start Painting")
-  const joinSession = useCallback(async (emoji?: string) => {
+  // Join session (only called when clicking "Start Painting")
+  const joinSession = useCallback(async () => {
     try {
       // First, clean up any existing sessions for this playerId to prevent duplicates on reload
       await supabase
@@ -129,9 +123,6 @@ export const usePlayerSession = () => {
           current_color: '#000000',
           current_tool: 'brush',
           current_size: 5,
-          selected_emoji: emoji || '😀',
-          collision_count: 0,
-          is_hit: false,
         });
 
       if (insertError) {
@@ -146,7 +137,6 @@ export const usePlayerSession = () => {
         playerId,
         isKicked: false,
         kickReason: null,
-        selectedEmoji: emoji || '😀',
       }));
 
       return true;
@@ -232,79 +222,6 @@ export const usePlayerSession = () => {
       console.error('Paint state update error:', error);
     }
   }, [playerId, sessionState.isConnected]);
-
-  // Check for collisions with other players
-  const checkCollisions = useCallback(async (currentX: number, currentY: number) => {
-    console.log('checkCollisions called with:', currentX, currentY);
-    if (!sessionState.isConnected || !sessionState.playerId) {
-      console.log('checkCollisions: not connected or no playerId');
-      return;
-    }
-
-    try {
-      // First get current player's collision count
-      const { data: currentPlayer } = await supabase
-        .from('player_sessions')
-        .select('collision_count')
-        .eq('player_id', sessionState.playerId)
-        .single();
-
-      const currentCollisionCount = currentPlayer?.collision_count || 0;
-
-      const { data: otherPlayers, error } = await supabase
-        .from('player_sessions')
-        .select('*')
-        .eq('is_active', true)
-        .neq('player_id', sessionState.playerId);
-
-      if (error || !otherPlayers) {
-        console.log('checkCollisions: error or no other players', error);
-        return;
-      }
-
-      console.log('checkCollisions: checking against', otherPlayers.length, 'other players');
-
-      for (const otherPlayer of otherPlayers) {
-        const distance = Math.sqrt(
-          Math.pow(currentX - otherPlayer.position_x, 2) + 
-          Math.pow(currentY - otherPlayer.position_y, 2)
-        );
-
-        // Collision detected if players are within 50 pixels
-        if (distance < 50) {
-          console.log('Collision detected with player:', otherPlayer.player_id);
-          const newCollisionCount = currentCollisionCount + 1;
-          
-          // Update collision count for current player
-          const { error: updateError } = await supabase
-            .from('player_sessions')
-            .update({ 
-              collision_count: newCollisionCount,
-              is_hit: true,
-              hit_timestamp: new Date().toISOString()
-            })
-            .eq('player_id', sessionState.playerId);
-
-          if (!updateError) {
-            // Check if player should be disconnected (3 collisions)
-            if (newCollisionCount >= 3) {
-              console.log('Player reached 3 collisions, disconnecting');
-              setSessionState(prev => ({
-                ...prev,
-                isConnected: false,
-                isKicked: true,
-                kickReason: 'collision'
-              }));
-              await leaveSession();
-            }
-          }
-          break;
-        }
-      }
-    } catch (error) {
-      console.error('Collision check error:', error);
-    }
-  }, [sessionState.isConnected, sessionState.playerId, leaveSession]);
 
   // Set up real-time subscriptions and cleanup
   useEffect(() => {
@@ -487,7 +404,7 @@ export const usePlayerSession = () => {
         cleanup();
       }
     };
-  }, [sessionState.isConnected, updateActivity, playerId, leaveSession]);
+  }, [sessionState.isConnected, updateActivity, playerId]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -496,7 +413,7 @@ export const usePlayerSession = () => {
         leaveSession();
       }
     };
-  }, [leaveSession, sessionState.isConnected]);
+  }, []);
 
   return {
     sessionState,
@@ -505,7 +422,6 @@ export const usePlayerSession = () => {
     updateActivity,
     updatePosition,
     updatePaintState,
-    checkCollisions,
     resetKick: () => setSessionState(prev => ({ ...prev, isKicked: false, kickReason: null })),
   };
 };

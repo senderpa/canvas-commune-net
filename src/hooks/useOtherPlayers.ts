@@ -11,10 +11,6 @@ export interface OtherPlayer {
   current_size: number;
   is_active: boolean;
   last_activity: string;
-  selected_emoji?: string;
-  collision_count?: number;
-  is_hit?: boolean;
-  hit_timestamp?: string;
 }
 
 export const useOtherPlayers = (currentPlayerId?: string) => {
