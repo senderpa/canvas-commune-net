@@ -204,12 +204,12 @@ const Index = () => {
             {/* Emoji Picker Slider */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-4">Choose Your Avatar {selectedEmoji}</h3>
-              <div className="grid grid-cols-6 gap-2 max-h-32 overflow-y-auto p-2 bg-muted/30 rounded-lg">
-                {['🎨', '😀', '😎', '🤖', '👨‍🎨', '👩‍🎨', '🦄', '🐱', '🐶', '🐸', '🦊', '🐻', '🎭', '🎪', '🌟', '⭐', '🔥', '💎', '🎯', '🚀', '🌈', '💫', '🎊', '🎉'].map((emoji) => (
+              <div className="flex gap-2 overflow-x-auto p-2 bg-muted/30 rounded-lg">
+                {['🎨', '😀', '😎', '🤖', '👨‍🎨', '👩‍🎨', '🦄', '🐱', '🐶', '🐸', '🦊', '🐻', '🎭', '🎪', '🌟', '⭐', '🔥', '💎', '🎯', '🚀', '🌈', '💫', '🎊', '🎉', '🐼', '🦁', '🐨', '🐯', '🦒', '🐘', '🦏', '🦛', '🐧', '🐺', '🦅', '🐦', '🐙', '🐠', '🐢', '🐝', '🦋', '🌸', '🌺', '🌻', '🍀', '🌿', '🍎', '🍊', '🍋'].map((emoji) => (
                   <button
                     key={emoji}
                     onClick={() => setSelectedEmoji(emoji)}
-                    className={`text-2xl p-2 rounded-lg transition-all hover:scale-110 ${
+                    className={`text-2xl p-2 rounded-lg transition-all hover:scale-110 flex-shrink-0 ${
                       selectedEmoji === emoji 
                         ? 'bg-primary text-primary-foreground scale-110' 
                         : 'bg-muted hover:bg-muted/70'
@@ -259,7 +259,9 @@ const Index = () => {
             {/* Action Buttons */}
             <div className="space-y-3">
               <button
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   console.log('Start Painting button clicked');
                   const success = await joinSession();
                   if (success) {
@@ -267,13 +269,16 @@ const Index = () => {
                   }
                 }}
                 disabled={!sessionState.canJoin}
-                className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
+                className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors cursor-pointer touch-manipulation"
+                style={{ pointerEvents: 'auto' }}
               >
                 {sessionState.canJoin ? 'Start Painting' : 'Room Full - Join Queue'}
               </button>
               
               <button
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   console.log('Timelapse button clicked');
                   setIsTimeLapseOpen(true);
                   
@@ -286,7 +291,8 @@ const Index = () => {
                     }
                   }
                 }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded transition-all duration-300 animate-pulse hover:animate-none border-2 border-blue-400 cursor-pointer touch-manipulation"
+                style={{ pointerEvents: 'auto' }}
               >
                 🎬 World Timelapse
               </button>
