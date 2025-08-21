@@ -78,16 +78,16 @@ export const usePlayerSession = () => {
     }
   }, []);
 
-  // Join session - simplified approach
+  // Join session with proper cleanup handling
   const joinSession = useCallback(async () => {
     try {
       console.log('Attempting to join session...');
       
-      // Clean up any existing sessions first
+      // Clean up any existing sessions first with proper awaiting
       await cleanupPlayerSessions(playerId);
       
-      // Wait a moment for cleanup to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait longer for database consistency
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Check if room has space
       const { data: playerCountData } = await supabase.rpc('get_active_player_count');
@@ -103,7 +103,7 @@ export const usePlayerSession = () => {
         return false;
       }
 
-      // Create session with simple approach - no retries
+      // Create session with upsert to handle any remaining duplicates
       const sessionToken = crypto.randomUUID();
       const sessionData = {
         player_id: playerId,
@@ -117,13 +117,28 @@ export const usePlayerSession = () => {
         current_size: 5,
       };
 
+      // Use upsert instead of insert to handle duplicates gracefully
       const { error } = await supabase
         .from('player_sessions')
-        .insert([sessionData]);
+        .upsert([sessionData], { 
+          onConflict: 'player_id',
+          ignoreDuplicates: false 
+        });
 
       if (error) {
         console.error('Error joining session:', error);
-        return false;
+        // If upsert fails, try one more cleanup and simple insert
+        await cleanupPlayerSessions(playerId);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const { error: retryError } = await supabase
+          .from('player_sessions')
+          .insert([sessionData]);
+          
+        if (retryError) {
+          console.error('Retry failed:', retryError);
+          return false;
+        }
       }
 
       console.log('Successfully joined session');
