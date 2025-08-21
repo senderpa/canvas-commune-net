@@ -11,7 +11,7 @@ interface Stroke {
   points: { x: number; y: number }[];
   color: string;
   size: number;
-  tool: 'brush';
+  tool: 'brush' | 'eraser';
   timestamp: number;
 }
 

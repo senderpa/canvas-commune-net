@@ -66,15 +66,30 @@ export const usePlayerSession = () => {
 
     const newSessionToken = uuidv4();
     const newPlayerId = uuidv4();
+    const anonymousId = `Player_${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
 
     setSessionToken(newSessionToken);
     setPlayerId(newPlayerId);
 
     try {
-      await supabase.rpc('join_painting_session', {
-        p_session_token: newSessionToken,
-        p_player_id: newPlayerId
-      });
+      // Insert into player_sessions table directly
+      const { error } = await supabase
+        .from('player_sessions')
+        .insert({
+          session_token: newSessionToken,
+          player_id: newPlayerId,
+          anonymous_id: anonymousId,
+          is_active: true,
+          position_x: 5000,
+          position_y: 5000,
+          current_color: '#ff0080',
+          current_tool: 'brush',
+          current_size: 5,
+          selected_emoji: '😀',
+          collision_count: 0
+        });
+      
+      if (error) throw error;
     } catch (error) {
       console.error('Error joining session:', error);
       setIsActive(false);
@@ -94,9 +109,11 @@ export const usePlayerSession = () => {
         setKickReason('disconnected');
       }
 
-      await supabase.rpc('leave_painting_session', {
-        p_session_token: sessionTokenRef.current
-      });
+      // Delete from player_sessions table directly
+      await supabase
+        .from('player_sessions')
+        .delete()
+        .eq('session_token', sessionTokenRef.current);
 
       cleanup();
     } catch (error) {
@@ -110,7 +127,7 @@ export const usePlayerSession = () => {
       if (!sessionToken) return;
 
       const { data, error } = await supabase
-        .from('painting_sessions')
+        .from('player_sessions')
         .select('*')
         .eq('session_token', sessionToken)
         .single();
@@ -127,9 +144,9 @@ export const usePlayerSession = () => {
         return;
       }
 
-      // Check if the session has ended (e.g., due to timeout or inactivity)
-      if (data.status === 'ended') {
-        setKickReason(data.end_reason || 'timeout');
+      // Check if the session is no longer active
+      if (!data.is_active) {
+        setKickReason('timeout');
         cleanup();
         return;
       }

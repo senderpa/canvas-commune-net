@@ -1,22 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast"
-import { 
-  EmojiSelectionOverlay, 
-  QueueOverlay, 
-  KickedOverlay, 
-  WorldCanvas, 
-  ToolBar, 
-  MobileOverlay, 
-  InfoDialog, 
-  AnimationReplay,
-  WorldMinimap,
-  LivePreview,
-  PlayerStats
-} from '@/components';
+import EmojiSelectionOverlay from '@/components/EmojiSelectionOverlay';
+import QueueOverlay from '@/components/QueueOverlay';
+import KickedOverlay from '@/components/KickedOverlay';
+import WorldCanvas from '@/components/WorldCanvas';
+import ToolBar from '@/components/ToolBar';
+import MobileOverlay from '@/components/MobileOverlay';
+import InfoDialog from '@/components/InfoDialog';
+import AnimationReplay from '@/components/AnimationReplay';
+import WorldMinimap from '@/components/WorldMinimap';
+import { LivePreview } from '@/components/LivePreview';
+import PlayerStats from '@/components/PlayerStats';
 import { Toaster } from "@/components/ui/toaster"
 import { usePlayerSession } from '@/hooks/usePlayerSession';
 
@@ -81,7 +79,7 @@ const Index = () => {
   // Join session on mount if emoji is selected
   useEffect(() => {
     if (selectedEmoji && !isActive) {
-      joinSession(selectedEmoji);
+      joinSession();
     }
   }, [selectedEmoji, isActive, joinSession]);
 
@@ -89,16 +87,12 @@ const Index = () => {
   useEffect(() => {
     const fetchPlayerCount = async () => {
       try {
-        const { data, error } = await supabase
-          .from('painting_sessions')
-          .select('player_count')
-          .eq('id', 'global')
-          .single();
+        const { data, error } = await supabase.rpc('get_active_player_count');
 
         if (error) {
           console.error('Error fetching player count:', error);
         } else {
-          setPlayerCount(data?.player_count || 0);
+          setPlayerCount(data || 0);
         }
       } catch (error) {
         console.error('Error fetching player count:', error);
@@ -112,10 +106,10 @@ const Index = () => {
   useEffect(() => {
     const channel = supabase
       .channel('player_count')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'painting_sessions' }, payload => {
-        if (payload.new) {
-          setPlayerCount(payload.new.player_count);
-        }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_sessions' }, async () => {
+        // Fetch updated count whenever player_sessions table changes
+        const { data } = await supabase.rpc('get_active_player_count');
+        setPlayerCount(data || 0);
       })
       .subscribe()
 
@@ -170,11 +164,12 @@ const Index = () => {
 
   // Handle URL parameters for live preview
   useEffect(() => {
+    const [searchParams] = useSearchParams();
     const preview = searchParams.get('preview');
     if (preview === 'true') {
       setShowLivePreview(true);
     }
-  }, [searchParams]);
+  }, []);
 
   // Modify the kickReason handling to include 'hits'
   useEffect(() => {
@@ -191,7 +186,7 @@ const Index = () => {
       {/* Show emoji selector if no emoji selected */}
       {showEmojiSelector && (
         <EmojiSelectionOverlay
-          onEmojiSelect={(emoji) => {
+          onEmojiSelected={(emoji) => {
             setSelectedEmoji(emoji);
             setShowEmojiSelector(false);
           }}
@@ -201,7 +196,10 @@ const Index = () => {
       {/* Show queue if not active and emoji is selected */}
       {!isActive && selectedEmoji && !showEmojiSelector && (
         <QueueOverlay 
-          onBack={() => {
+          playerCount={playerCount}
+          queueCount={0}
+          queuePosition={0}
+          onCancel={() => {
             setSelectedEmoji('');
             setShowEmojiSelector(true);
           }}
@@ -229,10 +227,13 @@ const Index = () => {
               onColorChange={handleColorChange}
               onSizeChange={handleSizeChange}
               onToolChange={handleToolChange}
+              onMove={handleMove}
               onInfoOpen={() => setShowInfo(true)}
               onPlayOpen={() => setShowAnimation(true)}
               onMapOpen={() => setShowMinimap(true)}
               strokeCount={strokes.length}
+              playerCount={playerCount}
+              isConnected={isConnected}
             />
           )}
 
@@ -273,8 +274,9 @@ const Index = () => {
 
           {/* Player stats overlay */}
           <PlayerStats 
-            collisionCount={collisionCount}
-            sessionStrokeCount={sessionStrokeCount}
+            strokeCount={strokes.length}
+            playerCount={playerCount}
+            isConnected={isConnected}
           />
 
           {/* Info Dialog */}
@@ -282,8 +284,8 @@ const Index = () => {
 
           {/* Animation Replay Dialog */}
           <AnimationReplay 
-            open={showAnimation} 
-            onOpenChange={setShowAnimation} 
+            isOpen={showAnimation} 
+            onClose={() => setShowAnimation(false)} 
             strokes={strokes}
           />
 
@@ -304,9 +306,7 @@ const Index = () => {
           {/* Live Preview */}
           {showLivePreview && (
             <LivePreview
-              paintState={paintState}
-              strokes={strokes}
-              onClose={() => setShowLivePreview(false)}
+              playerCount={playerCount}
             />
           )}
         </>
