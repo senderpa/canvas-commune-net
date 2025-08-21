@@ -174,39 +174,41 @@ const Index = () => {
     };
   }, [targetPosition]);
 
-  // Auto-start timer effect
+  // Auto-start timer effect  
   useEffect(() => {
-    let timer: number;
-    let countdownTimer: number;
+    console.log('Auto-start effect triggered:', { isStarted, canJoin: sessionState.canJoin });
     
     if (!isStarted && sessionState.canJoin) {
+      console.log('Starting 9-second countdown');
       setAutoStartCountdown(9);
       
-      // Countdown timer
-      const countdown = () => {
+      const countdownTimer = setInterval(() => {
         setAutoStartCountdown(prev => {
+          console.log('Countdown tick:', prev);
           if (prev <= 1) {
+            console.log('Auto-starting now!');
             // Auto start when countdown reaches 0
             joinSession().then(success => {
+              console.log('Auto-start result:', success);
               if (success) {
                 setIsStarted(true);
-                console.log('Auto-started session');
+                console.log('Auto-started session successfully');
               }
             });
             return 0;
           }
           return prev - 1;
         });
-      };
-      
-      countdownTimer = window.setInterval(countdown, 1000);
+      }, 1000);
       
       return () => {
-        if (countdownTimer) clearInterval(countdownTimer);
-        if (timer) clearTimeout(timer);
+        console.log('Clearing countdown timer');
+        clearInterval(countdownTimer);
       };
+    } else {
+      setAutoStartCountdown(0);
     }
-  }, [isStarted, sessionState.canJoin, joinSession]);
+  }, [isStarted, sessionState.canJoin, joinSession]); // Removed autoStartCountdown from deps
 
   // Convert real-time strokes to canvas format (filter out eraser strokes)
   const canvasStrokes = strokes

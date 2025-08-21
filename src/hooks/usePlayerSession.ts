@@ -83,30 +83,17 @@ export const usePlayerSession = () => {
     }
   }, []);
 
-  // Simplified join session with proper RLS context
+  // Simplified join session with UPSERT approach
   const joinSession = useCallback(async () => {
     try {
       console.log('Attempting to join session...');
       
-      // Set RLS context for this player using the new function
+      // Set RLS context for this player
       await supabase.rpc('set_player_context', {
         player_id_value: playerId
       });
-      
-      // Single cleanup attempt with UPSERT approach
-      try {
-        // Delete any existing sessions first
-        await supabase.from('player_sessions').delete().eq('player_id', playerId);
-        await supabase.from('player_queue').delete().eq('player_id', playerId);
-        console.log('Cleanup completed');
-        
-        // Wait longer for cleanup
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      } catch (cleanupError) {
-        console.log('Cleanup error (continuing anyway):', cleanupError);
-      }
 
-      // Check room capacity  
+      // Check room capacity first
       const { data: playerCountData } = await supabase.rpc('get_active_player_count');
       const currentPlayerCount = playerCountData || 0;
       
@@ -120,7 +107,7 @@ export const usePlayerSession = () => {
         return false;
       }
 
-      // Simple insert with RLS context set
+      // Use UPSERT to handle duplicates automatically
       const sessionToken = crypto.randomUUID();
       const sessionData = {
         player_id: playerId,
@@ -132,32 +119,21 @@ export const usePlayerSession = () => {
         current_color: '#000000',
         current_tool: 'brush',
         current_size: 5,
+        session_start: new Date().toISOString(),
+        last_activity: new Date().toISOString(),
       };
 
+      // Use upsert to handle existing sessions
       const { error } = await supabase
         .from('player_sessions')
-        .insert([sessionData]);
+        .upsert([sessionData], { 
+          onConflict: 'player_id',
+          ignoreDuplicates: false 
+        });
 
       if (error) {
-        console.error('Insert failed:', error);
-        
-        // If it's a duplicate, try one more cleanup and retry
-        if (error.code === '23505') {
-          console.log('Duplicate detected, trying cleanup and retry...');
-          await supabase.from('player_sessions').delete().eq('player_id', playerId);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          const { error: retryError } = await supabase
-            .from('player_sessions')
-            .insert([sessionData]);
-            
-          if (retryError) {
-            console.error('Retry also failed:', retryError);
-            return false;
-          }
-        } else {
-          return false;
-        }
+        console.error('Upsert failed:', error);
+        return false;
       }
 
       console.log('Successfully joined session');
