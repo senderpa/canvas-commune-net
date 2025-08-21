@@ -16,7 +16,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { usePlayerSession } from '@/hooks/usePlayerSession';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
 import { useSessionStrokeCount } from '@/hooks/useSessionStrokeCount';
-import { soundEffects } from '@/utils/soundEffects';
 
 export type Tool = 'brush' | 'hand';
 
@@ -330,8 +329,6 @@ const Index = () => {
                 setCollisionCount(prev => {
                   const newCount = prev + 1;
                   if (newCount >= 3) {
-                    // Play kick sound when getting kicked
-                    soundEffects.playKickSound();
                     // Disconnect user after 3 collisions
                     leaveSession();
                     setIsStarted(false);

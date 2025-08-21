@@ -2,8 +2,6 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import { PaintState } from '@/pages/Index';
 import EdgeIndicators from './EdgeIndicators';
 import { useOtherPlayers } from '@/hooks/useOtherPlayers';
-import { ParticleExplosion } from './ParticleExplosion';
-import { soundEffects } from '@/utils/soundEffects';
 
 interface Stroke {
   id: string;
@@ -58,11 +56,8 @@ const WorldCanvas = ({
   
   // Emoji positioning and collision state
   const [emojiPosition, setEmojiPosition] = useState({ x: 0, y: 0 });
-  const [prevEmojiPosition, setPrevEmojiPosition] = useState({ x: 0, y: 0 });
-  const [emojiVelocity, setEmojiVelocity] = useState({ vx: 0, vy: 0 });
   const [isEmojiHit, setIsEmojiHit] = useState(false);
   const [lastHitTime, setLastHitTime] = useState(0);
-  const [explosionState, setExplosionState] = useState({ isActive: false, x: 0, y: 0 });
   
   // Import other players hook
   const { otherPlayers } = useOtherPlayers(currentPlayerId);
@@ -334,16 +329,6 @@ const WorldCanvas = ({
       x: Math.max(paintState.x + 30, Math.min(paintState.x + canvasSize - 30, worldPos.x)),
       y: Math.max(paintState.y + 30, Math.min(paintState.y + canvasSize - 30, worldPos.y))
     };
-
-    // Calculate velocity
-    const deltaTime = 16; // Assume 60fps
-    const velocity = {
-      vx: (constrainedPos.x - emojiPosition.x) / deltaTime * 1000,
-      vy: (constrainedPos.y - emojiPosition.y) / deltaTime * 1000
-    };
-    setEmojiVelocity(velocity);
-    
-    setPrevEmojiPosition(emojiPosition);
     setEmojiPosition(constrainedPos);
     onMouseMove(constrainedPos);
     
@@ -357,36 +342,12 @@ const WorldCanvas = ({
       if (distance < 50) { // Collision threshold
         const now = Date.now();
         if (now - lastHitTime > 500) { // Prevent rapid collision spam
+          setIsEmojiHit(true);
+          setLastHitTime(now);
+          onCollision();
           
-          // Calculate other player's estimated velocity (simplified)
-          // In a real scenario, this would come from the database
-          const otherPlayerSpeed = 0; // Assume other players are stationary for now
-          const currentPlayerSpeed = Math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy);
-          
-          // Only apply hit to slower/stationary emoji
-          if (currentPlayerSpeed <= otherPlayerSpeed) {
-            setIsEmojiHit(true);
-            setLastHitTime(now);
-            onCollision();
-            
-            // Play collision sound
-            soundEffects.playCollisionSound();
-            
-            // Trigger particle explosion at collision point
-            const canvas = canvasRef.current;
-            if (canvas) {
-              const rect = canvas.getBoundingClientRect();
-              const canvasPoint = worldToViewport(constrainedPos.x, constrainedPos.y);
-              setExplosionState({
-                isActive: true,
-                x: rect.left + canvasPoint.x,
-                y: rect.top + canvasPoint.y
-              });
-            }
-            
-            // Reset hit animation after 300ms
-            setTimeout(() => setIsEmojiHit(false), 300);
-          }
+          // Reset hit animation after 300ms
+          setTimeout(() => setIsEmojiHit(false), 300);
         }
       }
     });
@@ -430,66 +391,56 @@ const WorldCanvas = ({
   }, [onStroke, paintState]);
 
   return (
-    <>
-      <div className="flex items-center justify-center min-h-screen w-full p-4">
-        <div className="relative">
-          {/* Edge indicators */}
-          <EdgeIndicators
-            worldX={paintState.x}
-            worldY={paintState.y}
-            worldSize={10000}
-            viewportSize={getCanvasSize()}
-          />
+    <div className="flex items-center justify-center min-h-screen w-full p-4">
+      <div className="relative">
+        {/* Edge indicators */}
+        <EdgeIndicators
+          worldX={paintState.x}
+          worldY={paintState.y}
+          worldSize={10000}
+          viewportSize={getCanvasSize()}
+        />
 
-          {/* Main canvas - responsive and centered */}
-          <canvas
-            ref={canvasRef}
-            className={`border-2 border-border rounded-lg shadow-2xl max-w-full max-h-[70vh] w-auto h-auto ${isDrawingEnabled ? 'cursor-crosshair' : 'cursor-grab'}`}
-            style={{ 
-              aspectRatio: '1 / 1',
-              maxWidth: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))',
-              maxHeight: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))'
-            }}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerLeave={handlePointerUp}
-          />
+        {/* Main canvas - responsive and centered */}
+        <canvas
+          ref={canvasRef}
+          className={`border-2 border-border rounded-lg shadow-2xl max-w-full max-h-[70vh] w-auto h-auto ${isDrawingEnabled ? 'cursor-crosshair' : 'cursor-grab'}`}
+          style={{ 
+            aspectRatio: '1 / 1',
+            maxWidth: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))',
+            maxHeight: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))'
+          }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        />
 
-          {/* Stats under canvas for both mobile and desktop */}
-          <div className="absolute -bottom-8 left-0 right-0">
-            <div className="flex items-center justify-between text-xs">
-              <div className="text-muted-foreground">
-                World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
+        {/* Stats under canvas for both mobile and desktop */}
+        <div className="absolute -bottom-8 left-0 right-0">
+          <div className="flex items-center justify-between text-xs">
+            <div className="text-muted-foreground">
+              World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-creative-primary animate-pulse' : 'bg-muted'}`} />
+                <span className="text-muted-foreground">{playerCount}</span>
               </div>
-              <div className="flex items-center gap-3 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-creative-primary animate-pulse' : 'bg-muted'}`} />
-                  <span className="text-muted-foreground">{playerCount}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">S:</span>
-                  <span>{strokeCount}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-green-400 text-xs">
-                    {30 + Math.floor(Math.random() * 40)}ms
-                  </span>
-                </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">S:</span>
+                <span>{strokeCount}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-green-400 text-xs">
+                  {30 + Math.floor(Math.random() * 40)}ms
+                </span>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Particle explosion overlay */}
-      <ParticleExplosion
-        x={explosionState.x}
-        y={explosionState.y}
-        isActive={explosionState.isActive}
-        onComplete={() => setExplosionState(prev => ({ ...prev, isActive: false }))}
-      />
-    </>
+    </div>
   );
 };
 
