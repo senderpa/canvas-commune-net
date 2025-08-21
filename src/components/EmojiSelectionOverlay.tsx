@@ -23,6 +23,8 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef<number>();
+  const holdIntervalRef = useRef<NodeJS.Timeout>();
+  const holdTimeoutRef = useRef<NodeJS.Timeout>();
   
   // Auto-scroll effect for slot machine feel
   useEffect(() => {
@@ -88,6 +90,9 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
         cancelAnimationFrame(autoScrollRef.current);
         autoScrollRef.current = undefined;
       }
+      // Clean up hold intervals
+      if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
+      if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
       setIsScrolling(false);
     };
   }, [selectedIndex, isScrolling]);
@@ -104,6 +109,33 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
     if (newIndex < 0) newIndex = emojis.length - 1;
     if (newIndex >= emojis.length) newIndex = 0;
     setSelectedIndex(newIndex);
+  };
+
+  const startHolding = (direction: 1 | -1) => {
+    // Clear any existing intervals
+    if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
+    if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
+    
+    // Initial scroll
+    handleScroll(direction);
+    
+    // Start continuous scrolling after delay
+    holdTimeoutRef.current = setTimeout(() => {
+      holdIntervalRef.current = setInterval(() => {
+        handleScroll(direction);
+      }, 150); // Scroll every 150ms when holding
+    }, 500); // Wait 500ms before starting continuous scroll
+  };
+
+  const stopHolding = () => {
+    if (holdIntervalRef.current) {
+      clearInterval(holdIntervalRef.current);
+      holdIntervalRef.current = undefined;
+    }
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = undefined;
+    }
   };
   
   const handleEmojiClick = (index: number) => {
@@ -146,18 +178,26 @@ const EmojiSelectionOverlay = ({ onEmojiSelected }: EmojiSelectionOverlayProps) 
         <div className="relative mb-8">
           {/* Left scroll button */}
           <button
-            onClick={() => handleScroll(-1)}
+            onMouseDown={() => startHolding(-1)}
+            onMouseUp={stopHolding}
+            onMouseLeave={stopHolding}
+            onTouchStart={() => startHolding(-1)}
+            onTouchEnd={stopHolding}
             disabled={isScrolling}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-primary/80 hover:bg-primary text-primary-foreground rounded-full w-10 h-10 flex items-center justify-center disabled:opacity-50 shadow-lg"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-primary/80 hover:bg-primary text-primary-foreground rounded-full w-10 h-10 flex items-center justify-center disabled:opacity-50 shadow-lg select-none"
           >
             ←
           </button>
           
           {/* Right scroll button */}
           <button
-            onClick={() => handleScroll(1)}
+            onMouseDown={() => startHolding(1)}
+            onMouseUp={stopHolding}
+            onMouseLeave={stopHolding}
+            onTouchStart={() => startHolding(1)}
+            onTouchEnd={stopHolding}
             disabled={isScrolling}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-primary/80 hover:bg-primary text-primary-foreground rounded-full w-10 h-10 flex items-center justify-center disabled:opacity-50 shadow-lg"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-primary/80 hover:bg-primary text-primary-foreground rounded-full w-10 h-10 flex items-center justify-center disabled:opacity-50 shadow-lg select-none"
           >
             →
           </button>

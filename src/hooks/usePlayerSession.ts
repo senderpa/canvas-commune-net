@@ -56,21 +56,26 @@ export const usePlayerSession = () => {
     return storedId;
   });
 
-  // Simple cleanup function
+  // More thorough cleanup function
   const cleanupPlayerSessions = useCallback(async (playerIdToClean: string) => {
     console.log('Cleaning up sessions for player:', playerIdToClean);
     
     try {
-      // Simple cleanup - no retries, just remove
-      await supabase
-        .from('player_sessions')
-        .delete()
-        .eq('player_id', playerIdToClean);
-        
-      await supabase
-        .from('player_queue')
-        .delete()
-        .eq('player_id', playerIdToClean);
+      // Multiple cleanup attempts to ensure thorough removal
+      const cleanupPromises = [
+        supabase.from('player_sessions').delete().eq('player_id', playerIdToClean),
+        supabase.from('player_queue').delete().eq('player_id', playerIdToClean)
+      ];
+      
+      await Promise.allSettled(cleanupPromises);
+      
+      // Wait a bit and try again to ensure complete cleanup
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      await Promise.allSettled([
+        supabase.from('player_sessions').delete().eq('player_id', playerIdToClean),
+        supabase.from('player_queue').delete().eq('player_id', playerIdToClean)
+      ]);
         
       console.log('Cleanup completed');
     } catch (error) {
