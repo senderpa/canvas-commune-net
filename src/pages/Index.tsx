@@ -13,7 +13,7 @@ import MobileOverlay from '@/components/MobileOverlay';
 import InfoDialog from '@/components/InfoDialog';
 import AnimationReplay from '@/components/AnimationReplay';
 import WorldMinimap from '@/components/WorldMinimap';
-import { LivePreview } from '@/components/LivePreview';
+import LivePreview from '@/components/LivePreview';
 import PlayerStats from '@/components/PlayerStats';
 import { Toaster } from "@/components/ui/toaster"
 import { usePlayerSession } from '@/hooks/usePlayerSession';
