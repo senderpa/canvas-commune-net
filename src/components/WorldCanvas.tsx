@@ -264,6 +264,59 @@ const WorldCanvas = ({
       }
     });
     
+    // Draw boundary gradient overlay (red areas where you can't paint)
+    const worldBounds = {
+      left: 0,
+      top: 0,
+      right: 10000,
+      bottom: 10000
+    };
+    
+    const viewportBounds = {
+      left: worldToViewport(worldBounds.left, 0).x,
+      top: worldToViewport(0, worldBounds.top).y,
+      right: worldToViewport(worldBounds.right, 0).x,
+      bottom: worldToViewport(0, worldBounds.bottom).y
+    };
+    
+    const gradientSize = 100; // Size of the gradient fade
+    
+    // Left boundary
+    if (viewportBounds.left > -gradientSize) {
+      const gradient = ctx.createLinearGradient(viewportBounds.left - gradientSize, 0, viewportBounds.left, 0);
+      gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
+      gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(-1000, -1000, viewportBounds.left + gradientSize + 1000, canvasSize + 2000);
+    }
+    
+    // Right boundary
+    if (viewportBounds.right < canvasSize + gradientSize) {
+      const gradient = ctx.createLinearGradient(viewportBounds.right, 0, viewportBounds.right + gradientSize, 0);
+      gradient.addColorStop(0, 'rgba(255, 0, 0, 0)');
+      gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(viewportBounds.right, -1000, canvasSize + 1000 - viewportBounds.right, canvasSize + 2000);
+    }
+    
+    // Top boundary
+    if (viewportBounds.top > -gradientSize) {
+      const gradient = ctx.createLinearGradient(0, viewportBounds.top - gradientSize, 0, viewportBounds.top);
+      gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
+      gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(-1000, -1000, canvasSize + 2000, viewportBounds.top + gradientSize + 1000);
+    }
+    
+    // Bottom boundary
+    if (viewportBounds.bottom < canvasSize + gradientSize) {
+      const gradient = ctx.createLinearGradient(0, viewportBounds.bottom, 0, viewportBounds.bottom + gradientSize);
+      gradient.addColorStop(0, 'rgba(255, 0, 0, 0)');
+      gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(-1000, viewportBounds.bottom, canvasSize + 2000, canvasSize + 1000 - viewportBounds.bottom);
+    }
+
     // Draw current player emoji
     if (selectedEmoji && emojiPosition.x !== 0 && emojiPosition.y !== 0) {
       const emojiViewportPos = worldToViewport(emojiPosition.x, emojiPosition.y);

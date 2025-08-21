@@ -102,8 +102,28 @@ export const usePlayerSession = () => {
     try {
       console.log('Attempting to join session...');
       
-      // First, clean up any existing sessions for this playerId
-      await cleanupPlayerSessions(playerId);
+      // Force aggressive cleanup first - retry multiple times if needed
+      for (let cleanupAttempt = 0; cleanupAttempt < 3; cleanupAttempt++) {
+        console.log(`Cleanup attempt ${cleanupAttempt + 1}`);
+        await cleanupPlayerSessions(playerId);
+        
+        // Wait for cleanup to propagate
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Verify cleanup worked by checking if session exists
+        const { data: existingSession } = await supabase
+          .from('player_sessions')
+          .select('id')
+          .eq('player_id', playerId)
+          .single();
+          
+        if (!existingSession) {
+          console.log('Cleanup successful');
+          break;
+        }
+        
+        console.log('Session still exists, retrying cleanup...');
+      }
 
       // Check player count using secure function
       const { data: playerCountData, error: countError } = await supabase
