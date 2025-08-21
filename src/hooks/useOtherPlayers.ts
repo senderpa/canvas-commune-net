@@ -7,7 +7,9 @@ export interface OtherPlayer {
   current_color: string;
   current_tool: string;
   current_size: number;
-  general_area_x: number;
+  position_x: number; // Exact position for minimap
+  position_y: number;
+  general_area_x: number; // Rounded position for privacy
   general_area_y: number;
 }
 
@@ -34,7 +36,9 @@ export const useOtherPlayers = (currentSessionToken?: string) => {
           current_color: player.current_color,
           current_tool: player.current_tool,
           current_size: player.current_size,
-          general_area_x: Math.round(player.position_x / 100) * 100,
+          position_x: player.position_x, // Use exact position for minimap
+          position_y: player.position_y,
+          general_area_x: Math.round(player.position_x / 100) * 100, // Keep for preview compatibility
           general_area_y: Math.round(player.position_y / 100) * 100
         }));
 

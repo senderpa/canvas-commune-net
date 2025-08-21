@@ -201,10 +201,10 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
     // Draw all strokes
     strokes.forEach(stroke => drawStroke(ctx, stroke));
 
-    // Draw other players with random colors
+    // Draw other players with their emojis and current positions
     otherPlayers.forEach((player, index) => {
-      const playerX = ((player.general_area_x - panX) * zoom) + minimapSize / 2;
-      const playerY = ((player.general_area_y - panY) * zoom) + minimapSize / 2;
+      const playerX = ((player.position_x - panX) * zoom) + minimapSize / 2;
+      const playerY = ((player.position_y - panY) * zoom) + minimapSize / 2;
       
       // Only draw if within canvas bounds (with some buffer)
       if (playerX >= -20 && playerX <= minimapSize + 20 && playerY >= -20 && playerY <= minimapSize + 20) {

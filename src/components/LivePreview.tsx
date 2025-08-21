@@ -2,15 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useRealTimeStrokes } from '@/hooks/useRealTimeStrokes';
 import { useOtherPlayers } from '@/hooks/useOtherPlayers';
 
-interface LivePreviewProps {
-  playerCount: number;
-}
-
-export const LivePreview = ({ playerCount }: LivePreviewProps) => {
+export const LivePreview = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { strokes } = useRealTimeStrokes();
   const { otherPlayers } = useOtherPlayers();
   const [focusPlayer, setFocusPlayer] = useState<any>(null);
+
+  // Get real-time accurate player count
+  const activePlayerCount = otherPlayers.length;
 
   // Select a random active player to focus on
   useEffect(() => {
@@ -113,7 +112,7 @@ export const LivePreview = ({ playerCount }: LivePreviewProps) => {
   }, [strokes, focusPlayer]);
 
   // Only show if there are active players
-  if (playerCount === 0 || !focusPlayer) {
+  if (activePlayerCount === 0 || !focusPlayer) {
     return null;
   }
 
@@ -131,7 +130,7 @@ export const LivePreview = ({ playerCount }: LivePreviewProps) => {
           style={{ imageRendering: 'auto' }}
         />
         <div className="absolute top-0.5 left-0.5 bg-black/50 text-white text-xs px-1 rounded">
-          {playerCount} live
+          {activePlayerCount} live
         </div>
       </div>
     </div>
