@@ -112,10 +112,13 @@ const Index = () => {
   }, [updatePosition]);
 
   const handleStroke = useCallback(async (stroke: {
+    player_id: string;
     points: { x: number; y: number }[];
     color: string;
     size: number;
-    tool: 'brush';
+    tool: 'brush' | 'eraser';
+    world_x: number;
+    world_y: number;
   }) => {
     // Ensure all stroke points are within world bounds
     const validPoints = stroke.points.filter(point => 
@@ -127,18 +130,14 @@ const Index = () => {
       const lastPoint = validPoints[validPoints.length - 1];
       setLastStrokePosition({ x: lastPoint.x, y: lastPoint.y });
       
-      // Calculate world position for the stroke (center point)
-      const avgX = validPoints.reduce((sum, p) => sum + p.x, 0) / validPoints.length;
-      const avgY = validPoints.reduce((sum, p) => sum + p.y, 0) / validPoints.length;
-      
       await addStroke({
-        player_id: sessionState.playerId,
+        player_id: stroke.player_id,
         points: validPoints,
         color: stroke.color,
         size: stroke.size,
         tool: stroke.tool,
-        world_x: Math.floor(avgX),
-        world_y: Math.floor(avgY),
+        world_x: stroke.world_x,
+        world_y: stroke.world_y,
         session_token: sessionState.sessionToken
       });
       
@@ -148,7 +147,7 @@ const Index = () => {
       // Update activity when painting
       updateActivity();
     }
-  }, [addStroke, updateActivity, sessionState.playerId, incrementStrokeCount]);
+  }, [addStroke, updateActivity, sessionState.playerId, incrementStrokeCount, sessionState.sessionToken]);
 
   // Smooth lerp movement with improved performance
   useEffect(() => {
@@ -200,17 +199,6 @@ const Index = () => {
     }
   }, [isStarted, sessionState.isConnected, sessionState.isKicked, sessionState.canJoin, joinSession]);
 
-  // Convert real-time strokes to canvas format (filter out eraser strokes)
-  const canvasStrokes = strokes
-    .filter(stroke => stroke.tool === 'brush') // Only show brush strokes
-    .map(stroke => ({
-      id: stroke.id,
-      points: stroke.points,
-      color: stroke.color,
-      size: stroke.size,
-      tool: 'brush' as const,
-      timestamp: new Date(stroke.created_at).getTime()
-    }));
 
   return (
     <div 
@@ -352,7 +340,7 @@ const Index = () => {
           <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? 'mt-36' : ''}`}>
             <WorldCanvas 
               paintState={paintState}
-              strokes={canvasStrokes}
+              strokes={strokes}
               onMove={handleMove}
               onStroke={handleStroke}
               strokeCount={strokes.length}
@@ -441,7 +429,10 @@ const Index = () => {
           <InfoDialog open={isInfoOpen} onOpenChange={setIsInfoOpen} />
           
           <AnimationReplay 
-            strokes={canvasStrokes}
+            strokes={strokes.filter(s => s.tool === 'brush').map(s => ({
+              ...s,
+              timestamp: new Date(s.created_at).getTime()
+            }))}
             isOpen={isPlayOpen}
             onClose={() => setIsPlayOpen(false)}
           />
@@ -458,7 +449,10 @@ const Index = () => {
               worldY={paintState.y}
               lastStrokeX={lastStrokePosition.x}
               lastStrokeY={lastStrokePosition.y}
-              strokes={canvasStrokes}
+              strokes={strokes.filter(s => s.tool === 'brush').map(s => ({
+                ...s,
+                timestamp: new Date(s.created_at).getTime()
+              }))}
               currentSessionToken={sessionState.sessionToken || undefined}
               selectedEmoji={selectedEmoji}
               onClose={() => setIsMapOpen(false)}
