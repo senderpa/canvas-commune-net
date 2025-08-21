@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PlayerSession {
@@ -45,6 +45,12 @@ export const usePlayerSession = () => {
     sessionToken: null,
   });
 
+  // Throttling ref for position updates
+  const positionThrottleRef = useRef<{
+    lastUpdate: number;
+    lastPosition: string;
+  }>({ lastUpdate: 0, lastPosition: '' });
+
   const [playerId] = useState(() => {
     // Try to get existing playerId from localStorage
     let storedId = localStorage.getItem('playerId');
@@ -58,16 +64,29 @@ export const usePlayerSession = () => {
   // Join session (only called when clicking "Start Painting")
   const joinSession = useCallback(async () => {
     try {
-      // First, clean up any existing sessions for this playerId to prevent duplicates on reload
-      await supabase
-        .from('player_sessions')
-        .delete()
-        .eq('player_id', playerId);
+      console.log('Attempting to join session...');
       
-      await supabase
-        .from('player_queue')
-        .delete()
-        .eq('player_id', playerId);
+      // First, clean up any existing sessions for this playerId to prevent duplicates on reload
+      try {
+        await supabase
+          .from('player_sessions')
+          .delete()
+          .eq('player_id', playerId);
+      } catch (cleanupError) {
+        console.log('Session cleanup error (expected):', cleanupError);
+      }
+      
+      try {
+        await supabase
+          .from('player_queue')
+          .delete()
+          .eq('player_id', playerId);
+      } catch (cleanupError) {
+        console.log('Queue cleanup error (expected):', cleanupError);
+      }
+
+      // Small delay to ensure cleanup is processed
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Use secure function to check player count
       const { data: playerCountData, error: countError } = await supabase
@@ -115,38 +134,71 @@ export const usePlayerSession = () => {
         return false;
       }
 
-      // Room has space - join directly
+      // Room has space - join directly with retry logic
       const sessionToken = crypto.randomUUID();
-      const { error: insertError } = await supabase
-        .from('player_sessions')
-        .insert({
-          player_id: playerId,
-          session_token: sessionToken,
-          anonymous_id: `Player_${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`,
-          is_active: true,
-          position_x: Math.floor(Math.random() * 10000),
-          position_y: Math.floor(Math.random() * 10000),
-          current_color: '#000000',
-          current_tool: 'brush',
-          current_size: 5,
-        });
+      const sessionData = {
+        player_id: playerId,
+        session_token: sessionToken,
+        anonymous_id: `Player_${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`,
+        is_active: true,
+        position_x: Math.floor(Math.random() * 10000),
+        position_y: Math.floor(Math.random() * 10000),
+        current_color: '#000000',
+        current_tool: 'brush',
+        current_size: 5,
+      };
 
-      if (insertError) {
-        console.error('Error joining session:', insertError);
-        return false;
+      let retries = 0;
+      let lastError = null;
+
+      while (retries < 3) {
+        try {
+          const { error: insertError } = await supabase
+            .from('player_sessions')
+            .insert([sessionData]);
+
+          if (!insertError) {
+            // Success!
+            setSessionState(prev => ({
+              ...prev,
+              isConnected: true,
+              canJoin: true,
+              playerId,
+              sessionToken,
+              isKicked: false,
+              kickReason: null,
+            }));
+
+            return true;
+          }
+
+          lastError = insertError;
+
+          if (insertError.code === '23505') { // Duplicate key constraint
+            console.log(`Retry ${retries + 1}: Duplicate key, cleaning up again...`);
+            
+            // Clean up again and retry with exponential backoff
+            await supabase
+              .from('player_sessions')
+              .delete()
+              .eq('player_id', playerId);
+
+            await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, retries)));
+            retries++;
+          } else {
+            throw insertError;
+          }
+        } catch (insertError) {
+          lastError = insertError;
+          retries++;
+          if (retries < 3) {
+            await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, retries)));
+          }
+        }
       }
 
-      setSessionState(prev => ({
-        ...prev,
-        isConnected: true,
-        canJoin: true,
-        playerId,
-        sessionToken,
-        isKicked: false,
-        kickReason: null,
-      }));
-
-      return true;
+      console.error('Error joining session after retries:', lastError);
+      return false;
     } catch (error) {
       console.error('Join session error:', error);
       return false;
@@ -194,21 +246,38 @@ export const usePlayerSession = () => {
     }
   }, [playerId, sessionState.isConnected]);
 
-  // Update position
+  // Update position with throttling for smoother movement
   const updatePosition = useCallback(async (x: number, y: number) => {
     if (!sessionState.isConnected) return;
 
-    try {
-      await supabase
-        .from('player_sessions')
-        .update({ 
-          position_x: Math.floor(x),
-          position_y: Math.floor(y),
-          last_activity: new Date().toISOString()
-        })
-        .eq('player_id', playerId);
-    } catch (error) {
-      console.error('Position update error:', error);
+    // Throttle position updates to reduce database load and improve smoothness
+    const throttleKey = `pos_${Math.floor(x/10)}_${Math.floor(y/10)}`;
+    const now = Date.now();
+    
+    // Only update if position changed significantly (10px threshold) or enough time passed (100ms)
+    if (!positionThrottleRef.current.lastUpdate || 
+        !positionThrottleRef.current.lastPosition || 
+        positionThrottleRef.current.lastPosition !== throttleKey || 
+        now - positionThrottleRef.current.lastUpdate > 100) {
+      
+      positionThrottleRef.current.lastUpdate = now;
+      positionThrottleRef.current.lastPosition = throttleKey;
+      
+      try {
+        await supabase
+          .from('player_sessions')
+          .update({ 
+            position_x: Math.floor(x),
+            position_y: Math.floor(y),
+            last_activity: new Date().toISOString()
+          })
+          .eq('player_id', playerId);
+      } catch (error) {
+        // Silently handle position update errors to avoid console spam
+        if (error.code !== '23503') { // Ignore foreign key constraint errors
+          console.error('Position update error:', error);
+        }
+      }
     }
   }, [playerId, sessionState.isConnected]);
 
