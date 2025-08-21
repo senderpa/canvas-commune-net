@@ -21,6 +21,7 @@ interface StrokeInput {
   tool: 'brush' | 'eraser';
   world_x: number;
   world_y: number;
+  session_token?: string;
 }
 
 export const useRealTimeStrokes = () => {
