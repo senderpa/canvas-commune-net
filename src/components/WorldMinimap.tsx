@@ -17,11 +17,12 @@ interface WorldMinimapProps {
   lastStrokeX: number;
   lastStrokeY: number;
   strokes: Stroke[];
-  currentPlayerId?: string;
+  currentSessionToken?: string;
+  selectedEmoji: string;
   onClose: () => void;
 }
 
-const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, currentPlayerId, onClose }: WorldMinimapProps) => {
+const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, currentSessionToken, selectedEmoji, onClose }: WorldMinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(0.06); // Show full world (10000 pixels in 600px canvas = 0.06)
   const [panX, setPanX] = useState(5000); // Center of world (10000/2)
@@ -37,7 +38,7 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
   const animationStartTimeRef = useRef(0);
   
   // Get other players' positions
-  const { otherPlayers } = useOtherPlayers(currentPlayerId);
+  const { otherPlayers } = useOtherPlayers(currentSessionToken);
 
   const worldSize = 10000;
   const minimapSize = 600;
@@ -202,19 +203,19 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
 
     // Draw other players with random colors
     otherPlayers.forEach((player, index) => {
-      const playerX = ((player.position_x - panX) * zoom) + minimapSize / 2;
-      const playerY = ((player.position_y - panY) * zoom) + minimapSize / 2;
+      const playerX = ((player.general_area_x - panX) * zoom) + minimapSize / 2;
+      const playerY = ((player.general_area_y - panY) * zoom) + minimapSize / 2;
       
       // Only draw if within canvas bounds (with some buffer)
       if (playerX >= -20 && playerX <= minimapSize + 20 && playerY >= -20 && playerY <= minimapSize + 20) {
-        // Generate consistent random color for each player based on their ID
+        // Generate consistent random color for each player based on their anonymous ID
         const colors = [
           '#ff4757', '#2ed573', '#3742fa', '#ff6348', '#7bed9f', 
           '#70a1ff', '#5352ed', '#ff3838', '#2f3542', '#f1c40f',
           '#9c88ff', '#ffa726', '#26de81', '#45aaf2', '#fd79a8',
           '#00cec9', '#6c5ce7', '#a29bfe', '#fab1a0', '#00b894'
         ];
-        const playerColor = colors[player.player_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % colors.length];
+        const playerColor = colors[player.anonymous_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % colors.length];
         
         // Draw player dot with random color
         ctx.beginPath();
@@ -225,33 +226,38 @@ const WorldMinimap = ({ worldX, worldY, lastStrokeX, lastStrokeY, strokes, curre
         ctx.lineWidth = Math.max(0.5, 2 * zoom);
         ctx.stroke();
         
-        // Draw small tool indicator
-        if (zoom > 0.3) {
-          ctx.fillStyle = '#000000';
-          ctx.font = `${Math.max(8, 12 * zoom)}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.fillText(
-            player.current_tool === 'eraser' ? '🧹' : '🖌️', 
-            playerX, 
-            playerY - Math.max(10, 15 * zoom)
-          );
-        }
+        // Draw player emoji instead of tool indicator
+        ctx.fillStyle = '#000000';
+        ctx.font = `${Math.max(12, 18 * zoom)}px Arial`; // 3x bigger emojis
+        ctx.textAlign = 'center';
+        
+        // Use the player's selected emoji
+        const playerEmoji = player.selected_emoji || '😀';
+        
+        ctx.fillText(playerEmoji, playerX, playerY);
       }
     });
 
-    // Draw current player position with blinking dot - show where last stroke ended
+    // Draw current player emoji instead of dot - show where last stroke ended
     const playerCanvasX = ((lastStrokeX - panX) * zoom) + minimapSize / 2;
     const playerCanvasY = ((lastStrokeY - panY) * zoom) + minimapSize / 2;
 
-    // Always draw player dot, make it blink
-    ctx.beginPath();
-    ctx.arc(playerCanvasX, playerCanvasY, Math.max(3, 6 * zoom), 0, 2 * Math.PI);
-    ctx.fillStyle = isBlinking ? '#ff0000' : '#ff6666';
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = Math.max(1, 2 * zoom);
-    ctx.stroke();
-  }, [strokes, worldX, worldY, lastStrokeX, lastStrokeY, drawStroke, zoom, panX, panY, minimapSize, isBlinking, otherPlayers]);
+    // Draw player emoji with blinking effect
+    ctx.save();
+    if (isBlinking) {
+      ctx.globalAlpha = 1;
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = Math.max(2, 10 * zoom);
+    } else {
+      ctx.globalAlpha = 0.8;
+    }
+    
+    ctx.fillStyle = '#000000';
+    ctx.font = `${Math.max(12, 18 * zoom)}px Arial`; // 3x bigger
+    ctx.textAlign = 'center';
+    ctx.fillText(selectedEmoji, playerCanvasX, playerCanvasY);
+    ctx.restore();
+  }, [strokes, worldX, worldY, lastStrokeX, lastStrokeY, drawStroke, zoom, panX, panY, minimapSize, isBlinking, otherPlayers, selectedEmoji]);
 
   // Update canvas when anything changes
   useEffect(() => {

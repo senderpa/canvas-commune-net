@@ -49,7 +49,7 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
               <li>• Choose colors with the color picker</li>
               <li>• Switch between brush and eraser tools in the toolbar</li>
               <li>• Adjust brush size from 1-20 pixels</li>
-              <li>• Sessions last 30 minutes with 2 minute inactivity timeout</li>
+              <li>• Sessions last 60 minutes with 5 minute inactivity timeout</li>
             </ul>
           </div>
           
@@ -66,7 +66,7 @@ const InfoDialog = ({ open, onOpenChange }: InfoDialogProps) => {
           
           <div className="border-t border-border pt-3 text-xs text-muted-foreground">
             <p>
-              Questions? Contact: <span className="text-primary">help@Multipainter.com</span>
+              Questions? Contact: <span className="text-primary">info@pascalsender.com</span>
             </p>
             <p className="mt-1">
               No personal data is collected. Your position and UI preferences are stored locally only.

@@ -20,6 +20,7 @@ export type Database = {
           emoji_id: string
           id: string
           player_id: string
+          session_token: string | null
           stroke_count: number
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           emoji_id: string
           id?: string
           player_id: string
+          session_token?: string | null
           stroke_count: number
         }
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           emoji_id?: string
           id?: string
           player_id?: string
+          session_token?: string | null
           stroke_count?: number
         }
         Relationships: []
@@ -45,6 +48,7 @@ export type Database = {
           joined_at: string | null
           player_id: string
           queue_position: number
+          session_token: string | null
         }
         Insert: {
           created_at?: string | null
@@ -52,6 +56,7 @@ export type Database = {
           joined_at?: string | null
           player_id: string
           queue_position: number
+          session_token?: string | null
         }
         Update: {
           created_at?: string | null
@@ -59,48 +64,67 @@ export type Database = {
           joined_at?: string | null
           player_id?: string
           queue_position?: number
+          session_token?: string | null
         }
         Relationships: []
       }
       player_sessions: {
         Row: {
+          anonymous_id: string
+          collision_count: number | null
           created_at: string | null
           current_color: string | null
           current_size: number | null
           current_tool: string | null
+          hit_timestamp: string | null
           id: string
           is_active: boolean | null
+          is_hit: boolean | null
           last_activity: string | null
           player_id: string
           position_x: number | null
           position_y: number | null
+          selected_emoji: string | null
           session_start: string | null
+          session_token: string
         }
         Insert: {
+          anonymous_id: string
+          collision_count?: number | null
           created_at?: string | null
           current_color?: string | null
           current_size?: number | null
           current_tool?: string | null
+          hit_timestamp?: string | null
           id?: string
           is_active?: boolean | null
+          is_hit?: boolean | null
           last_activity?: string | null
           player_id: string
           position_x?: number | null
           position_y?: number | null
+          selected_emoji?: string | null
           session_start?: string | null
+          session_token: string
         }
         Update: {
+          anonymous_id?: string
+          collision_count?: number | null
           created_at?: string | null
           current_color?: string | null
           current_size?: number | null
           current_tool?: string | null
+          hit_timestamp?: string | null
           id?: string
           is_active?: boolean | null
+          is_hit?: boolean | null
           last_activity?: string | null
           player_id?: string
           position_x?: number | null
           position_y?: number | null
+          selected_emoji?: string | null
           session_start?: string | null
+          session_token?: string
         }
         Relationships: []
       }
@@ -111,6 +135,7 @@ export type Database = {
           id: string
           player_id: string
           points: Json
+          session_token: string | null
           size: number
           tool: string
           world_x: number
@@ -122,6 +147,7 @@ export type Database = {
           id?: string
           player_id: string
           points: Json
+          session_token?: string | null
           size: number
           tool: string
           world_x: number
@@ -133,6 +159,7 @@ export type Database = {
           id?: string
           player_id?: string
           points?: Json
+          session_token?: string | null
           size?: number
           tool?: string
           world_x?: number
@@ -145,13 +172,52 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_emoji_collision: {
+        Args: {
+          p_position_x: number
+          p_position_y: number
+          p_session_token: string
+        }
+        Returns: {
+          collided_with_anonymous_id: string
+          collided_with_emoji: string
+        }[]
+      }
       cleanup_inactive_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      generate_anonymous_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_active_player_count: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      get_anonymous_player_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          anonymous_id: string
+          current_color: string
+          current_size: number
+          current_tool: string
+          general_area_x: number
+          general_area_y: number
+          selected_emoji: string
+        }[]
+      }
+      get_queue_count: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       promote_from_queue: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      validate_player_session: {
+        Args: { session_player_id: string }
+        Returns: boolean
       }
     }
     Enums: {

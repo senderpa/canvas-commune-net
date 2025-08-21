@@ -1,6 +1,10 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { PaintState } from '@/pages/Index';
 import EdgeIndicators from './EdgeIndicators';
+import { useOtherPlayers } from '@/hooks/useOtherPlayers';
+import { ParticleExplosion } from './ParticleExplosion';
+import { soundEffects } from '@/utils/soundEffects';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Stroke {
   id: string;
@@ -19,9 +23,31 @@ interface WorldCanvasProps {
   strokeCount: number;
   playerCount: number;
   isConnected: boolean;
+  selectedEmoji: string;
+  userMousePosition: { x: number; y: number };
+  onMouseMove: (position: { x: number; y: number }) => void;
+  collisionCount: number;
+  onCollision: () => void;
+  isDrawingEnabled: boolean;
+  currentSessionToken?: string;
 }
 
-const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playerCount, isConnected }: WorldCanvasProps) => {
+const WorldCanvas = ({ 
+  paintState, 
+  strokes, 
+  onMove, 
+  onStroke, 
+  strokeCount, 
+  playerCount, 
+  isConnected, 
+  selectedEmoji, 
+  userMousePosition, 
+  onMouseMove, 
+  collisionCount, 
+  onCollision,
+  isDrawingEnabled,
+  currentSessionToken 
+}: WorldCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
@@ -30,6 +56,17 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
   // Smooth edge panning state
   const edgePanVelocityRef = useRef({ x: 0, y: 0 });
   const lastEdgePanTimeRef = useRef(0);
+  
+  // Emoji positioning and collision state
+  const [emojiPosition, setEmojiPosition] = useState({ x: 0, y: 0 });
+  const [prevEmojiPosition, setPrevEmojiPosition] = useState({ x: 0, y: 0 });
+  const [emojiVelocity, setEmojiVelocity] = useState({ vx: 0, vy: 0 });
+  const [isEmojiHit, setIsEmojiHit] = useState(false);
+  const [lastHitTime, setLastHitTime] = useState(0);
+  const [explosionState, setExplosionState] = useState({ isActive: false, x: 0, y: 0 });
+  
+  // Import other players hook
+  const { otherPlayers } = useOtherPlayers(currentSessionToken);
 
   // Dynamic canvas size: starts at 512x512, grows by 1 pixel per stroke, max 30% of world (3000x3000)
   const getCanvasSize = useCallback(() => {
@@ -198,19 +235,113 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
       }
     });
 
-    // Draw current stroke being drawn
-    if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
+    // Draw current stroke being drawn (only if brush tool)
+    if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
       const currentStroke = {
         id: 'current',
         points: currentStrokeRef.current,
         color: paintState.color,
         size: paintState.size,
-        tool: paintState.tool,
+        tool: 'brush' as const,
         timestamp: Date.now()
       };
       drawStroke(ctx, currentStroke);
     }
-  }, [strokes, worldToViewport, drawStroke, paintState, getCanvasSize]);
+    
+    // Draw other players' emojis using general area coordinates
+    otherPlayers.forEach((player, index) => {
+      const emojiViewportPos = worldToViewport(player.general_area_x, player.general_area_y);
+      if (emojiViewportPos.x >= -50 && emojiViewportPos.x <= canvasSize + 50 && 
+          emojiViewportPos.y >= -50 && emojiViewportPos.y <= canvasSize + 50) {
+        
+        // Use the player's selected emoji
+        const playerEmoji = player.selected_emoji || '😀';
+        
+        ctx.font = '60px Arial'; // 3x bigger
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(playerEmoji, emojiViewportPos.x, emojiViewportPos.y);
+      }
+    });
+    
+    // Draw boundary gradient overlay (red areas where you can't paint)
+    const worldBounds = {
+      left: 0,
+      top: 0,
+      right: 10000,
+      bottom: 10000
+    };
+    
+    const viewportBounds = {
+      left: worldToViewport(worldBounds.left, 0).x,
+      top: worldToViewport(0, worldBounds.top).y,
+      right: worldToViewport(worldBounds.right, 0).x,
+      bottom: worldToViewport(0, worldBounds.bottom).y
+    };
+    
+    const gradientSize = 100; // Size of the gradient fade
+    
+    // Left boundary
+    if (viewportBounds.left > -gradientSize) {
+      const gradient = ctx.createLinearGradient(viewportBounds.left - gradientSize, 0, viewportBounds.left, 0);
+      gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
+      gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(-1000, -1000, viewportBounds.left + gradientSize + 1000, canvasSize + 2000);
+    }
+    
+    // Right boundary
+    if (viewportBounds.right < canvasSize + gradientSize) {
+      const gradient = ctx.createLinearGradient(viewportBounds.right, 0, viewportBounds.right + gradientSize, 0);
+      gradient.addColorStop(0, 'rgba(255, 0, 0, 0)');
+      gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(viewportBounds.right, -1000, canvasSize + 1000 - viewportBounds.right, canvasSize + 2000);
+    }
+    
+    // Top boundary
+    if (viewportBounds.top > -gradientSize) {
+      const gradient = ctx.createLinearGradient(0, viewportBounds.top - gradientSize, 0, viewportBounds.top);
+      gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
+      gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(-1000, -1000, canvasSize + 2000, viewportBounds.top + gradientSize + 1000);
+    }
+    
+    // Bottom boundary
+    if (viewportBounds.bottom < canvasSize + gradientSize) {
+      const gradient = ctx.createLinearGradient(0, viewportBounds.bottom, 0, viewportBounds.bottom + gradientSize);
+      gradient.addColorStop(0, 'rgba(255, 0, 0, 0)');
+      gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(-1000, viewportBounds.bottom, canvasSize + 2000, canvasSize + 1000 - viewportBounds.bottom);
+    }
+
+    // Draw current player emoji
+    if (selectedEmoji && emojiPosition.x !== 0 && emojiPosition.y !== 0) {
+      const emojiViewportPos = worldToViewport(emojiPosition.x, emojiPosition.y);
+      
+      ctx.save();
+      
+      // Pulsation and red flash when hit
+      if (isEmojiHit) {
+        ctx.globalAlpha = 0.8;
+        ctx.shadowColor = 'red';
+        ctx.shadowBlur = 20;
+        ctx.transform(1.2, 0, 0, 1.2, emojiViewportPos.x * 0.2, emojiViewportPos.y * 0.2); // Scale up when hit
+      } else if (collisionCount > 0) {
+        const pulseScale = 1 + Math.sin(Date.now() * 0.01) * 0.1;
+        ctx.transform(pulseScale, 0, 0, pulseScale, emojiViewportPos.x * (1 - pulseScale), emojiViewportPos.y * (1 - pulseScale));
+      }
+      
+      ctx.font = '60px Arial'; // 3x bigger
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(selectedEmoji, emojiViewportPos.x, emojiViewportPos.y);
+      
+      ctx.restore();
+    }
+  }, [strokes, worldToViewport, drawStroke, paintState, getCanvasSize, otherPlayers, selectedEmoji, emojiPosition, isEmojiHit, collisionCount]);
 
   // Re-render when viewport or strokes change
   useEffect(() => {
@@ -230,7 +361,7 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
-    if (!point) return;
+    if (!point || !isDrawingEnabled) return;
 
     isDrawingRef.current = true;
     const worldPos = viewportToWorld(point.x, point.y);
@@ -243,35 +374,109 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
 
     // Re-render to show initial point
     renderStrokes();
-  }, [getCanvasPoint, viewportToWorld, renderStrokes]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes, isDrawingEnabled]);
 
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDrawingRef.current) return;
-
+  // Throttle collision detection to improve performance
+  const lastCollisionCheck = useRef(0);
+  
+  const handlePointerMove = useCallback(async (e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
     if (!point) return;
+    
+    const worldPos = viewportToWorld(point.x, point.y);
+    
+    // Update emoji position - constrain to canvas bounds with smooth lerp
+    const canvasSize = getCanvasSize();
+    const targetPos = {
+      x: Math.max(paintState.x + 30, Math.min(paintState.x + canvasSize - 30, worldPos.x)),
+      y: Math.max(paintState.y + 30, Math.min(paintState.y + canvasSize - 30, worldPos.y))
+    };
+
+    // Smooth emoji movement with lerp for fluid motion
+    const lerpFactor = 0.8; // Higher value for more responsive movement
+    const smoothPos = {
+      x: emojiPosition.x + (targetPos.x - emojiPosition.x) * lerpFactor,
+      y: emojiPosition.y + (targetPos.y - emojiPosition.y) * lerpFactor
+    };
+
+    // Calculate velocity for collision detection
+    const deltaTime = 16;
+    const velocity = {
+      vx: (smoothPos.x - emojiPosition.x) / deltaTime * 1000,
+      vy: (smoothPos.y - emojiPosition.y) / deltaTime * 1000
+    };
+    setEmojiVelocity(velocity);
+    
+    setPrevEmojiPosition(emojiPosition);
+    setEmojiPosition(smoothPos);
+    onMouseMove(smoothPos);
+    
+    // Throttle collision detection to every 100ms for better performance
+    const now = Date.now();
+    if (currentSessionToken && now - lastCollisionCheck.current > 100) {
+      lastCollisionCheck.current = now;
+      
+      try {
+        const { data: collisions, error } = await supabase
+          .rpc('check_emoji_collision', {
+            p_session_token: currentSessionToken,
+            p_position_x: Math.floor(smoothPos.x),
+            p_position_y: Math.floor(smoothPos.y)
+          });
+
+        if (!error && collisions && collisions.length > 0) {
+          if (now - lastHitTime > 500) { // Prevent rapid collision spam
+            
+            setIsEmojiHit(true);
+            setLastHitTime(now);
+            onCollision();
+            
+            // Play collision sound
+            soundEffects.playCollisionSound();
+            
+            // Trigger particle explosion at collision point
+            const canvas = canvasRef.current;
+            if (canvas) {
+              const rect = canvas.getBoundingClientRect();
+              const canvasPoint = worldToViewport(smoothPos.x, smoothPos.y);
+              setExplosionState({
+                isActive: true,
+                x: rect.left + canvasPoint.x,
+                y: rect.top + canvasPoint.y
+              });
+            }
+            
+            // Reset hit animation after 300ms
+            setTimeout(() => setIsEmojiHit(false), 300);
+          }
+        }
+      } catch (error) {
+        console.error('Collision detection error:', error);
+      }
+    }
+    
+    if (!isDrawingRef.current) return;
 
     // Add point to current stroke in world coordinates
-    const worldPos = viewportToWorld(point.x, point.y);
     currentStrokeRef.current.push(worldPos);
 
-    // Throttle re-rendering during drawing to prevent mobile glitches
+    // Smooth re-rendering with RAF throttling
     requestAnimationFrame(() => {
       renderStrokes();
     });
 
     // Handle edge panning while drawing
     handleEdgePanning(e.clientX, e.clientY);
-  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, onMouseMove, onCollision, lastHitTime, getCanvasSize, currentSessionToken, emojiPosition]);
 
   const handlePointerUp = useCallback(() => {
-    if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
-      // Send complete stroke
+    if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
+      // Send complete stroke (only for brush tool)
       onStroke({
         points: [...currentStrokeRef.current],
         color: paintState.color,
         size: paintState.size,
-        tool: paintState.tool
+        tool: 'brush'
       });
     }
     
@@ -289,56 +494,66 @@ const WorldCanvas = ({ paintState, strokes, onMove, onStroke, strokeCount, playe
   }, [onStroke, paintState]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen w-full p-4">
-      <div className="relative">
-        {/* Edge indicators */}
-        <EdgeIndicators
-          worldX={paintState.x}
-          worldY={paintState.y}
-          worldSize={10000}
-          viewportSize={getCanvasSize()}
-        />
+    <>
+      <div className="flex items-center justify-center min-h-screen w-full p-4">
+        <div className="relative">
+          {/* Edge indicators */}
+          <EdgeIndicators
+            worldX={paintState.x}
+            worldY={paintState.y}
+            worldSize={10000}
+            viewportSize={getCanvasSize()}
+          />
 
-        {/* Main canvas - responsive and centered */}
-        <canvas
-          ref={canvasRef}
-          className="border-2 border-border rounded-lg shadow-2xl cursor-crosshair max-w-full max-h-[70vh] w-auto h-auto"
-          style={{ 
-            aspectRatio: '1 / 1',
-            maxWidth: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))',
-            maxHeight: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))'
-          }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-        />
+          {/* Main canvas - responsive and centered */}
+          <canvas
+            ref={canvasRef}
+            className={`border-2 border-border rounded-lg shadow-2xl max-w-full max-h-[70vh] w-auto h-auto ${isDrawingEnabled ? 'cursor-crosshair' : 'cursor-grab'}`}
+            style={{ 
+              aspectRatio: '1 / 1',
+              maxWidth: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))',
+              maxHeight: 'min(600px, calc(100vw - 2rem), calc(100vh - 200px))'
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerUp}
+          />
 
-        {/* Stats under canvas for both mobile and desktop */}
-        <div className="absolute -bottom-8 left-0 right-0">
-          <div className="flex items-center justify-between text-xs">
-            <div className="text-muted-foreground">
-              World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-1">
-                <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-creative-primary animate-pulse' : 'bg-muted'}`} />
-                <span className="text-muted-foreground">{playerCount}</span>
+          {/* Stats under canvas for both mobile and desktop */}
+          <div className="absolute -bottom-8 left-0 right-0">
+            <div className="flex items-center justify-between text-xs">
+              <div className="text-muted-foreground">
+                World: ({Math.round(paintState.x)}, {Math.round(paintState.y)})
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">S:</span>
-                <span>{strokeCount}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-green-400 text-xs">
-                  {30 + Math.floor(Math.random() * 40)}ms
-                </span>
+              <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-creative-primary animate-pulse' : 'bg-muted'}`} />
+                  <span className="text-muted-foreground">{playerCount}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">S:</span>
+                  <span>{strokeCount}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-green-400 text-xs">
+                    {30 + Math.floor(Math.random() * 40)}ms
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Particle explosion overlay */}
+      <ParticleExplosion
+        x={explosionState.x}
+        y={explosionState.y}
+        isActive={explosionState.isActive}
+        onComplete={() => setExplosionState(prev => ({ ...prev, isActive: false }))}
+      />
+    </>
   );
 };
 
