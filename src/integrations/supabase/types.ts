@@ -169,57 +169,7 @@ export type Database = {
       }
     }
     Views: {
-      player_game_state: {
-        Row: {
-          anonymous_id: string | null
-          collision_count: number | null
-          current_color: string | null
-          current_size: number | null
-          current_tool: string | null
-          hit_timestamp: string | null
-          id: string | null
-          is_active: boolean | null
-          is_hit: boolean | null
-          last_activity: string | null
-          position_x: number | null
-          position_y: number | null
-          selected_emoji: string | null
-          session_start: string | null
-        }
-        Insert: {
-          anonymous_id?: string | null
-          collision_count?: number | null
-          current_color?: string | null
-          current_size?: number | null
-          current_tool?: string | null
-          hit_timestamp?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          is_hit?: boolean | null
-          last_activity?: string | null
-          position_x?: number | null
-          position_y?: number | null
-          selected_emoji?: string | null
-          session_start?: string | null
-        }
-        Update: {
-          anonymous_id?: string | null
-          collision_count?: number | null
-          current_color?: string | null
-          current_size?: number | null
-          current_tool?: string | null
-          hit_timestamp?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          is_hit?: boolean | null
-          last_activity?: string | null
-          position_x?: number | null
-          position_y?: number | null
-          selected_emoji?: string | null
-          session_start?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       check_emoji_collision: {
@@ -273,6 +223,25 @@ export type Database = {
           selected_emoji: string
           session_start: string
           session_token: string
+        }[]
+      }
+      get_public_player_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          anonymous_id: string
+          collision_count: number
+          current_color: string
+          current_size: number
+          current_tool: string
+          hit_timestamp: string
+          id: string
+          is_active: boolean
+          is_hit: boolean
+          last_activity: string
+          position_x: number
+          position_y: number
+          selected_emoji: string
+          session_start: string
         }[]
       }
       get_queue_count: {

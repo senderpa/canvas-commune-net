@@ -18,19 +18,25 @@ export const useOtherPlayers = (currentSessionToken?: string) => {
   useEffect(() => {
     const loadOtherPlayers = async () => {
       try {
-        // Use secure function to get anonymous player data
+        // Use secure function to get public player data (no sensitive info exposed)
         const { data, error } = await supabase
-          .rpc('get_anonymous_player_data');
+          .rpc('get_public_player_data');
 
         if (error) {
           console.error('Error loading other players:', error);
           return;
         }
 
-        // Filter out current player if we have a session token
-        const filteredData = currentSessionToken 
-          ? (data || []).slice(0, -1) // Remove one player (assuming it might be current player)
-          : (data || []);
+        // Convert to the expected format and filter out current player if needed
+        const filteredData = (data || []).map(player => ({
+          anonymous_id: player.anonymous_id,
+          selected_emoji: player.selected_emoji,
+          current_color: player.current_color,
+          current_tool: player.current_tool,
+          current_size: player.current_size,
+          general_area_x: Math.round(player.position_x / 100) * 100,
+          general_area_y: Math.round(player.position_y / 100) * 100
+        }));
 
         setOtherPlayers(filteredData);
       } catch (error) {

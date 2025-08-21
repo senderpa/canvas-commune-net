@@ -122,15 +122,25 @@ export const usePlayerSession = () => {
     }
   }, [playerId]);
 
-  // Update activity
+  // Update activity using our secure function
   const updateActivity = useCallback(async () => {
     if (!sessionState.isConnected || !sessionState.sessionToken) return;
 
     try {
-      await supabase
-        .from('player_sessions')
-        .update({ last_activity: new Date().toISOString() })
-        .eq('session_token', sessionState.sessionToken);
+      // Use our secure update function instead of direct table access
+      const { error } = await supabase.rpc('update_player_activity', {
+        p_session_token: sessionState.sessionToken
+      });
+      
+      if (error) {
+        console.log('Activity update failed, disconnecting');
+        setSessionState(prev => ({
+          ...prev,
+          isConnected: false,
+          isKicked: true,
+          kickReason: 'disconnected'
+        }));
+      }
     } catch (error) {
       console.log('Activity update failed, disconnecting');
       setSessionState(prev => ({
