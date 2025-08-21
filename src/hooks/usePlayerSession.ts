@@ -225,19 +225,25 @@ export const usePlayerSession = () => {
     }
   }, [playerId, cleanupPlayerSessions]);
 
-  // Leave session
+  // Leave session with immediate cleanup
   const leaveSession = useCallback(async () => {
     try {
       console.log('Leaving session for player:', playerId);
+      
+      // Force immediate cleanup and state reset
       await cleanupPlayerSessions(playerId);
-
+      
+      // Immediately update local state
       setSessionState(prev => ({
         ...prev,
         isConnected: false,
         canJoin: false,
         playerId: null,
         sessionToken: null,
+        isKicked: false,
+        kickReason: null,
       }));
+      
     } catch (error) {
       console.error('Leave session error:', error);
     }
@@ -421,14 +427,30 @@ export const usePlayerSession = () => {
 
           // Only kick if session doesn't exist AND they've been "connected" for a while
           if (!currentSession) {
-            console.log('Player session was cleaned up by server');
+            console.log('Player session was cleaned up by server - forcing logout');
+            
+            // Force immediate state reset and cleanup
+            await cleanupPlayerSessions(playerId);
+            
             setSessionState(prev => ({
               ...prev,
               isConnected: false,
               isKicked: true,
               kickReason: 'timeout',
-              canJoin: true,
+              canJoin: false, // Force them to wait
+              playerId: null,
+              sessionToken: null,
             }));
+            
+            // Allow rejoin after 2 seconds
+            setTimeout(() => {
+              setSessionState(prev => ({
+                ...prev,
+                canJoin: true,
+                isKicked: false,
+                kickReason: null,
+              }));
+            }, 2000);
           }
         }
 
@@ -471,6 +493,17 @@ export const usePlayerSession = () => {
     updateActivity,
     updatePosition,
     updatePaintState,
-    resetKick: () => setSessionState(prev => ({ ...prev, isKicked: false, kickReason: null })),
+    resetKick: () => {
+      // Full reset function
+      setSessionState(prev => ({ 
+        ...prev, 
+        isKicked: false, 
+        kickReason: null,
+        canJoin: true,
+        isConnected: false,
+        playerId: null,
+        sessionToken: null,
+      }));
+    },
   };
 };

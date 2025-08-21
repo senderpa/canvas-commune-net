@@ -47,27 +47,26 @@ const Index = () => {
     ...initialPosition
   });
   
-  const [selectedEmoji, setSelectedEmoji] = useState<string>(() => {
-    // Load from session storage if available
-    return sessionStorage.getItem('selectedEmoji') || '';
-  });
-  const [isEmojiSelected, setIsEmojiSelected] = useState(() => {
-    // Check if emoji was already selected in this session
-    return sessionStorage.getItem('selectedEmoji') !== null;
-  });
+  const [selectedEmoji, setSelectedEmoji] = useState<string>(''); // Always start empty - no session storage
+  const [isEmojiSelected, setIsEmojiSelected] = useState(false); // Always start false
   const [isStarted, setIsStarted] = useState(false);
   const [userMousePosition, setUserMousePosition] = useState({ x: 0, y: 0 });
   const [collisionCount, setCollisionCount] = useState(0);
   
-  // Generate new random color on each session start
+  // Reset when session ends or user gets kicked
   useEffect(() => {
-    if (isStarted && sessionState.isConnected) {
+    if (sessionState.isKicked || (!sessionState.isConnected && isStarted)) {
+      console.log('Session ended - resetting state');
+      setIsStarted(false);
+      setIsEmojiSelected(false);
+      setSelectedEmoji('');
+      setCollisionCount(0);
+      // Generate new color for next session
       const colors = ['#ff0080', '#00ff80', '#8000ff', '#ff8000', '#0080ff', '#ff0040', '#40ff00', '#0040ff', '#ff3366', '#33ff66', '#3366ff', '#ff6b35', '#7b68ee', '#ff1493', '#00bfff', '#32cd32'];
       const newColor = colors[Math.floor(Math.random() * colors.length)];
       setPaintState(prev => ({ ...prev, color: newColor }));
-      console.log('Random color generated on session start:', newColor);
     }
-  }, [isStarted, sessionState.isConnected]);
+  }, [sessionState.isKicked, sessionState.isConnected, isStarted]);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isPlayOpen, setIsPlayOpen] = useState(false);
   const [isTimeLapseOpen, setIsTimeLapseOpen] = useState(false);
@@ -197,13 +196,12 @@ const Index = () => {
         overscrollBehavior: 'none'
       }}
     >
-      {/* Emoji Selection Overlay - First Screen */}
+      {/* Emoji Selection Overlay - First Screen - Always shown when not selected */}
       {!isEmojiSelected && (
         <EmojiSelectionOverlay onEmojiSelected={(emoji) => {
           setSelectedEmoji(emoji);
           setIsEmojiSelected(true);
-          // Save to session storage
-          sessionStorage.setItem('selectedEmoji', emoji);
+          // Don't save to session storage - force selection each time
         }} />
       )}
 
@@ -215,7 +213,7 @@ const Index = () => {
             <button
               onClick={() => {
                 setIsEmojiSelected(false);
-                sessionStorage.removeItem('selectedEmoji');
+                // Don't use session storage anymore
               }}
               className="absolute top-3 right-3 w-8 h-8 rounded-full bg-muted hover:bg-muted/80 border border-border flex items-center justify-center text-sm transition-colors z-10"
               title="Change emoji"
