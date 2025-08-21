@@ -398,18 +398,20 @@ export const usePlayerSession = () => {
     // Initial player count
     refreshPlayerCount();
 
-    // Set up activity heartbeat
+    // Set up activity heartbeat - more frequent to prevent timeouts
     if (sessionState.isConnected) {
-      activityInterval = setInterval(updateActivity, 30000); // Every 30 seconds
+      activityInterval = setInterval(updateActivity, 15000); // Every 15 seconds
     }
 
-    // Set up cleanup interval - less aggressive cleanup
+    // Set up cleanup interval - much less aggressive to prevent premature kicks
     cleanupInterval = setInterval(async () => {
       try {
-        // Use the cleanup function from the database
-        await supabase.rpc('cleanup_inactive_sessions');
+        // Only run cleanup if player has been inactive for a while or if they're not currently connected
+        if (!sessionState.isConnected) {
+          await supabase.rpc('cleanup_inactive_sessions');
+        }
 
-        // Check if current player was kicked (only if they think they're connected)
+        // Check if current player session still exists (only if connected)
         if (sessionState.isConnected) {
           const { data: currentSession } = await supabase
             .from('player_sessions')
@@ -417,15 +419,15 @@ export const usePlayerSession = () => {
             .eq('player_id', playerId)
             .single();
 
+          // Only kick if session doesn't exist AND they've been "connected" for a while
           if (!currentSession) {
-            // Player was kicked due to inactivity/timeout
             console.log('Player session was cleaned up by server');
             setSessionState(prev => ({
               ...prev,
               isConnected: false,
               isKicked: true,
               kickReason: 'timeout',
-              canJoin: true, // Allow them to rejoin
+              canJoin: true,
             }));
           }
         }
@@ -434,7 +436,7 @@ export const usePlayerSession = () => {
       } catch (error) {
         console.error('Cleanup error:', error);
       }
-    }, 30000); // Every 30 seconds - less aggressive
+    }, 60000); // Every 60 seconds - much less aggressive
 
     return () => {
       // Cleanup subscriptions

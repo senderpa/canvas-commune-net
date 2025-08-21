@@ -323,50 +323,57 @@ const WorldCanvas = ({
     renderStrokes();
   }, [getCanvasPoint, viewportToWorld, renderStrokes, isDrawingEnabled]);
 
+  // Throttle collision detection to improve performance
+  const lastCollisionCheck = useRef(0);
+  
   const handlePointerMove = useCallback(async (e: React.PointerEvent) => {
     const point = getCanvasPoint(e);
     if (!point) return;
     
     const worldPos = viewportToWorld(point.x, point.y);
     
-    // Update emoji position - constrain to canvas bounds
+    // Update emoji position - constrain to canvas bounds with smooth lerp
     const canvasSize = getCanvasSize();
-    const constrainedPos = {
+    const targetPos = {
       x: Math.max(paintState.x + 30, Math.min(paintState.x + canvasSize - 30, worldPos.x)),
       y: Math.max(paintState.y + 30, Math.min(paintState.y + canvasSize - 30, worldPos.y))
     };
 
-    // Calculate velocity
-    const deltaTime = 16; // Assume 60fps
+    // Smooth emoji movement with lerp for fluid motion
+    const lerpFactor = 0.8; // Higher value for more responsive movement
+    const smoothPos = {
+      x: emojiPosition.x + (targetPos.x - emojiPosition.x) * lerpFactor,
+      y: emojiPosition.y + (targetPos.y - emojiPosition.y) * lerpFactor
+    };
+
+    // Calculate velocity for collision detection
+    const deltaTime = 16;
     const velocity = {
-      vx: (constrainedPos.x - emojiPosition.x) / deltaTime * 1000,
-      vy: (constrainedPos.y - emojiPosition.y) / deltaTime * 1000
+      vx: (smoothPos.x - emojiPosition.x) / deltaTime * 1000,
+      vy: (smoothPos.y - emojiPosition.y) / deltaTime * 1000
     };
     setEmojiVelocity(velocity);
     
     setPrevEmojiPosition(emojiPosition);
-    setEmojiPosition(constrainedPos);
-    onMouseMove(constrainedPos);
+    setEmojiPosition(smoothPos);
+    onMouseMove(smoothPos);
     
-    // Check for collisions with other players using secure function
-    if (currentSessionToken) {
-      // Use secure collision detection function
+    // Throttle collision detection to every 100ms for better performance
+    const now = Date.now();
+    if (currentSessionToken && now - lastCollisionCheck.current > 100) {
+      lastCollisionCheck.current = now;
+      
       try {
         const { data: collisions, error } = await supabase
           .rpc('check_emoji_collision', {
             p_session_token: currentSessionToken,
-            p_position_x: Math.floor(constrainedPos.x),
-            p_position_y: Math.floor(constrainedPos.y)
+            p_position_x: Math.floor(smoothPos.x),
+            p_position_y: Math.floor(smoothPos.y)
           });
 
         if (!error && collisions && collisions.length > 0) {
-          const now = Date.now();
           if (now - lastHitTime > 500) { // Prevent rapid collision spam
             
-            // Calculate current player speed
-            const currentPlayerSpeed = Math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy);
-            
-            // For security, we assume slower emoji gets hit (current player moving into collision)
             setIsEmojiHit(true);
             setLastHitTime(now);
             onCollision();
@@ -378,7 +385,7 @@ const WorldCanvas = ({
             const canvas = canvasRef.current;
             if (canvas) {
               const rect = canvas.getBoundingClientRect();
-              const canvasPoint = worldToViewport(constrainedPos.x, constrainedPos.y);
+              const canvasPoint = worldToViewport(smoothPos.x, smoothPos.y);
               setExplosionState({
                 isActive: true,
                 x: rect.left + canvasPoint.x,
@@ -400,14 +407,14 @@ const WorldCanvas = ({
     // Add point to current stroke in world coordinates
     currentStrokeRef.current.push(worldPos);
 
-    // Throttle re-rendering during drawing to prevent mobile glitches
+    // Smooth re-rendering with RAF throttling
     requestAnimationFrame(() => {
       renderStrokes();
     });
 
     // Handle edge panning while drawing
     handleEdgePanning(e.clientX, e.clientY);
-  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, otherPlayers, onMouseMove, onCollision, lastHitTime, getCanvasSize, currentSessionToken]);
+  }, [getCanvasPoint, viewportToWorld, renderStrokes, handleEdgePanning, paintState, onMouseMove, onCollision, lastHitTime, getCanvasSize, currentSessionToken, emojiPosition]);
 
   const handlePointerUp = useCallback(() => {
     if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
