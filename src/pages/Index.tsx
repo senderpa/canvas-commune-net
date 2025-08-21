@@ -55,8 +55,6 @@ const Index = () => {
   });
   const [isEmojiSelected, setIsEmojiSelected] = useState(true); // Always true now
   const [isStarted, setIsStarted] = useState(false);
-  const [autoStartTimer, setAutoStartTimer] = useState<number | null>(null);
-  const [autoStartCountdown, setAutoStartCountdown] = useState<number>(9);
   const [userMousePosition, setUserMousePosition] = useState({ x: 0, y: 0 });
   const [collisionCount, setCollisionCount] = useState(0);
   
@@ -180,43 +178,22 @@ const Index = () => {
     };
   }, [targetPosition]);
 
-  // Auto-start timer effect - COMPLETELY REWRITTEN
+  // Silent auto-start after 1 minute (only when not kicked)
   useEffect(() => {
-    console.log('Auto-start effect triggered:', { isStarted, canJoin: sessionState.canJoin });
-    
-    if (!isStarted && sessionState.canJoin) {
-      console.log('Starting 9-second countdown');
-      setAutoStartCountdown(9);
+    if (!isStarted && !sessionState.isConnected && !sessionState.isKicked && sessionState.canJoin) {
+      const timer = setTimeout(() => {
+        if (!isStarted && !sessionState.isConnected && !sessionState.isKicked) {
+          joinSession().then(success => {
+            if (success) {
+              setIsStarted(true);
+            }
+          });
+        }
+      }, 60000); // 1 minute silent auto-start
       
-      const countdownTimer = setInterval(() => {
-        setAutoStartCountdown(prev => {
-          const newCount = prev - 1;
-          console.log('Countdown tick:', newCount);
-          
-          if (newCount <= 0) {
-            console.log('Auto-starting now!');
-            // Auto start when countdown reaches 0
-            joinSession().then(success => {
-              console.log('Auto-start result:', success);
-              if (success) {
-                setIsStarted(true);
-                console.log('Auto-started session successfully');
-              }
-            });
-          }
-          
-          return Math.max(0, newCount);
-        });
-      }, 1000);
-      
-      return () => {
-        console.log('Clearing countdown timer');
-        clearInterval(countdownTimer);
-      };
-    } else {
-      setAutoStartCountdown(0);
+      return () => clearTimeout(timer);
     }
-  }, [isStarted, sessionState.canJoin, joinSession]);
+  }, [isStarted, sessionState.isConnected, sessionState.isKicked, sessionState.canJoin, joinSession]);
 
   // Convert real-time strokes to canvas format (filter out eraser strokes)
   const canvasStrokes = strokes
@@ -297,32 +274,17 @@ const Index = () => {
               </div>
             </div>
             
-            
             <LivePreview playerCount={sessionState.playerCount} />
-            
-            {/* Auto-start countdown */}
-            {sessionState.canJoin && autoStartCountdown > 0 && (
-              <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
-                <div className="text-sm text-blue-300">
-                  Auto-starting in {autoStartCountdown} seconds...
-                </div>
-              </div>
-            )}
             
             {/* Action Buttons */}
             <div className="space-y-3">
               <button
                 onClick={async (e) => {
-                  console.log('START BUTTON CLICKED!', e);
                   e.preventDefault();
                   e.stopPropagation();
-                  setAutoStartCountdown(0); // Stop auto-start
-                  console.log('Start Painting button clicked, canJoin:', sessionState.canJoin);
                   const success = await joinSession();
-                  console.log('joinSession result:', success);
                   if (success) {
                     setIsStarted(true);
-                    console.log('Set isStarted to true');
                   }
                 }}
                 disabled={!sessionState.canJoin}
@@ -333,15 +295,12 @@ const Index = () => {
               
               <button
                 onClick={async (e) => {
-                  console.log('TIMELAPSE BUTTON CLICKED!', e);
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Timelapse button clicked');
                   setIsTimeLapseOpen(true);
                   
                   // Also automatically start the session
                   if (!isStarted && sessionState.canJoin) {
-                    console.log('Auto-starting painting session from timelapse');
                     const success = await joinSession();
                     if (success) {
                       setIsStarted(true);

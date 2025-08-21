@@ -122,35 +122,11 @@ export const usePlayerSession = () => {
     }
   }, [playerId]);
 
-  // Update activity using our secure function
+  // Update activity - simplified without activity function
   const updateActivity = useCallback(async () => {
-    if (!sessionState.isConnected || !sessionState.sessionToken) return;
-
-    try {
-      // Use our secure update function instead of direct table access
-      const { error } = await supabase.rpc('update_player_activity', {
-        p_session_token: sessionState.sessionToken
-      });
-      
-      if (error) {
-        console.log('Activity update failed, disconnecting');
-        setSessionState(prev => ({
-          ...prev,
-          isConnected: false,
-          isKicked: true,
-          kickReason: 'disconnected'
-        }));
-      }
-    } catch (error) {
-      console.log('Activity update failed, disconnecting');
-      setSessionState(prev => ({
-        ...prev,
-        isConnected: false,
-        isKicked: true,
-        kickReason: 'disconnected'
-      }));
-    }
-  }, [sessionState.isConnected, sessionState.sessionToken]);
+    // Removed activity updates to prevent disconnections
+    // Users will only disconnect when they manually leave or close the browser
+  }, []);
 
   // Update position
   const updatePosition = useCallback(async (x: number, y: number) => {
@@ -224,10 +200,7 @@ export const usePlayerSession = () => {
     // Initial count refresh
     refreshPlayerCount();
 
-    // Set up activity heartbeat if connected
-    if (sessionState.isConnected) {
-      activityIntervalRef.current = setInterval(updateActivity, 30000); // Every 30 seconds
-    }
+    // No activity heartbeat - users stay connected until manual disconnect
 
     return () => {
       if (subscription) subscription.unsubscribe();
