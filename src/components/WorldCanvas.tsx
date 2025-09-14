@@ -11,7 +11,7 @@ interface Stroke {
   points: { x: number; y: number }[];
   color: string;
   size: number;
-  tool: 'brush';
+  tool: 'brush' | 'eraser';
   timestamp: number;
 }
 
@@ -271,19 +271,35 @@ const WorldCanvas = ({
       drawStroke(ctx, currentStroke);
     }
     
-    // Draw other players' emojis using general area coordinates
+    // Draw other players' emojis using exact positioning
     otherPlayers.forEach((player, index) => {
-      const emojiViewportPos = worldToViewport(player.general_area_x, player.general_area_y);
+      const emojiViewportPos = worldToViewport(player.position_x, player.position_y);
       if (emojiViewportPos.x >= -50 && emojiViewportPos.x <= canvasSize + 50 && 
           emojiViewportPos.y >= -50 && emojiViewportPos.y <= canvasSize + 50) {
         
-        // Use the player's selected emoji
+        // Use the player's selected emoji with enhanced visibility
         const playerEmoji = player.selected_emoji || '😀';
         
-        ctx.font = '60px Arial'; // 3x bigger
+        // Add shadow for better visibility
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        
+        ctx.font = '48px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(playerEmoji, emojiViewportPos.x, emojiViewportPos.y);
+        
+        // Add a subtle border ring around other players
+        ctx.strokeStyle = player.current_color || '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(emojiViewportPos.x, emojiViewportPos.y, 30, 0, 2 * Math.PI);
+        ctx.stroke();
+        
+        ctx.restore();
       }
     });
     

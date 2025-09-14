@@ -200,17 +200,15 @@ const Index = () => {
     }
   }, [isStarted, sessionState.isConnected, sessionState.isKicked, sessionState.canJoin, joinSession]);
 
-  // Convert real-time strokes to canvas format (filter out eraser strokes)
-  const canvasStrokes = strokes
-    .filter(stroke => stroke.tool === 'brush') // Only show brush strokes
-    .map(stroke => ({
-      id: stroke.id,
-      points: stroke.points,
-      color: stroke.color,
-      size: stroke.size,
-      tool: 'brush' as const,
-      timestamp: new Date(stroke.created_at).getTime()
-    }));
+  // Convert real-time strokes to canvas format
+  const canvasStrokes = strokes.map(stroke => ({
+    id: stroke.id,
+    points: stroke.points,
+    color: stroke.color,
+    size: stroke.size,
+    tool: stroke.tool,
+    timestamp: new Date(stroke.created_at).getTime()
+  }));
 
   return (
     <div 
