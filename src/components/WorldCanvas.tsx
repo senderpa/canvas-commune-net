@@ -241,22 +241,34 @@ const WorldCanvas = ({
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvasSize, canvasSize);
 
+    // Debug: Log current viewport and stroke count
+    console.log(`Rendering ${strokes.length} strokes at viewport (${Math.round(paintState.x)}, ${Math.round(paintState.y)})`);
+    
     // Draw all completed strokes that have points visible in current viewport
-    strokes.forEach(stroke => {
+    let visibleStrokeCount = 0;
+    strokes.forEach((stroke, index) => {
       if (stroke.points.length === 0) return;
       
-      // Check if any point of the stroke is visible (with margin)
+      // Check if any point of the stroke is visible (with larger margin for better visibility)
       const canvasSize = getCanvasSize();
+      const margin = 200; // Increased margin to catch more strokes
       const isVisible = stroke.points.some(point => {
         const viewportPos = worldToViewport(point.x, point.y);
-        return viewportPos.x >= -stroke.size && viewportPos.x <= canvasSize + stroke.size &&
-               viewportPos.y >= -stroke.size && viewportPos.y <= canvasSize + stroke.size;
+        return viewportPos.x >= -margin && viewportPos.x <= canvasSize + margin &&
+               viewportPos.y >= -margin && viewportPos.y <= canvasSize + margin;
       });
 
       if (isVisible) {
+        visibleStrokeCount++;
+        // Debug: Log visible strokes
+        if (index < 5) { // Only log first 5 for readability
+          console.log(`Rendering stroke ${stroke.id} with ${stroke.points.length} points, first point:`, stroke.points[0]);
+        }
         drawStroke(ctx, stroke);
       }
     });
+    
+    console.log(`Rendered ${visibleStrokeCount} visible strokes out of ${strokes.length} total`);
 
     // Draw current stroke being drawn (only if brush tool)
     if (isDrawingRef.current && currentStrokeRef.current.length > 0 && paintState.tool === 'brush') {
@@ -271,9 +283,17 @@ const WorldCanvas = ({
       drawStroke(ctx, currentStroke);
     }
     
+    // Debug: Log other players
+    console.log(`Found ${otherPlayers.length} other players`);
+    otherPlayers.forEach(player => {
+      console.log(`Player ${player.anonymous_id}: pos(${player.position_x}, ${player.position_y}), emoji: ${player.selected_emoji}`);
+    });
+    
     // Draw other players' emojis using exact positioning
     otherPlayers.forEach((player, index) => {
       const emojiViewportPos = worldToViewport(player.position_x, player.position_y);
+      console.log(`Rendering player ${player.anonymous_id} at viewport pos:`, emojiViewportPos);
+      
       if (emojiViewportPos.x >= -50 && emojiViewportPos.x <= canvasSize + 50 && 
           emojiViewportPos.y >= -50 && emojiViewportPos.y <= canvasSize + 50) {
         
